@@ -1,0 +1,83 @@
+@import 'tailwindcss';
+@import '@fontsource/cormorant-garamond/400.css';
+@import '@fontsource/cormorant-garamond/600.css';
+@import '@fontsource/inter/400.css';
+@import '@fontsource/inter/500.css';
+
+@theme {
+  /* Core background layers */
+  --color-bg-base: #0a0a0a;
+  --color-bg-surface: #141414;
+  --color-bg-elevated: #1e1e1e;
+  --color-bg-hover: #262626;
+
+  /* Text hierarchy */
+  --color-text-primary: #e8e0d4;
+  --color-text-secondary: #9a9084;
+  --color-text-tertiary: #6b6560;
+
+  /* Accent palette */
+  --color-accent-gold: #c9a84c;
+  --color-accent-gold-dim: #a38838;
+  --color-accent-copper: #b87333;
+  --color-accent-amber: #d4a24e;
+
+  /* Semantic */
+  --color-success: #4a7c59;
+  --color-warning: #c9a84c;
+  --color-error: #8b3a3a;
+  --color-info: #4a6a7c;
+
+  /* Archetype colors */
+  --color-archetype-safe: #4a7c59;
+  --color-archetype-adventurous: #7c4a6a;
+  --color-archetype-cultural: #4a6a7c;
+
+  /* Typography */
+  --font-serif: 'Cormorant Garamond', Georgia, serif;
+  --font-sans: 'Inter', system-ui, sans-serif;
+
+  /* Border radius */
+  --radius-card: 12px;
+  --radius-button: 8px;
+  --radius-pill: 999px;
+}
+
+@layer base {
+  html {
+    background-color: var(--color-bg-base);
+    color: var(--color-text-primary);
+    color-scheme: dark;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    font-size: 0.9375rem;
+    line-height: 1.5;
+    min-height: 100vh;
+    min-height: 100dvh;
+    margin: 0;
+  }
+
+  h1, h2, h3 {
+    font-family: var(--font-serif);
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: var(--color-bg-base);
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-bg-hover);
+    border-radius: 999px;
+  }
+
+  ::selection {
+    background-color: color-mix(in oklch, var(--color-accent-gold) 20%, transparent);
+    color: var(--color-text-primary);
+  }
+}

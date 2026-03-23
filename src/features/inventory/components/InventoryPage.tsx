@@ -1,8 +1,10 @@
 import { useState, useMemo } from 'react';
 import { Plus, Search, Wine, ChevronDown, ChevronRight, Upload, Camera, FileText } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
 import type { Bottle, SpiritCategory, PriceTier } from '@/types/database.types';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useBottles, useCreateBottle, useUpdateBottle, useDeactivateBottle, useDeleteBottle } from '../hooks/useBottles';
+import { bottleService } from '../inventory.service';
 import { useSeedInventory } from '../hooks/useSeedInventory';
 import { CATEGORY_LABELS, CATEGORY_ORDER } from '../inventory.types';
 import { BottleCard } from './BottleCard';
@@ -19,6 +21,7 @@ export function InventoryPage() {
   const deactivateBottle = useDeactivateBottle();
   const deleteBottle = useDeleteBottle();
   const seedInventory = useSeedInventory();
+  const queryClient = useQueryClient();
 
   const [showForm, setShowForm] = useState(false);
   const [showPhotoImport, setShowPhotoImport] = useState(false);
@@ -85,24 +88,22 @@ export function InventoryPage() {
     );
   };
 
-  const handleBulkImport = (importedBottles: { name: string; brand: string | null; category: SpiritCategory; subcategory: string | null; spirit_type: string | null; abv: number | null; price_tier: PriceTier | null; tags: string[] }[], onDone: () => void) => {
+  const handleBulkImport = async (importedBottles: { name: string; brand: string | null; category: SpiritCategory; subcategory: string | null; spirit_type: string | null; abv: number | null; price_tier: PriceTier | null; tags: string[] }[], onDone: () => void) => {
     if (!user) return;
-    let completed = 0;
-    for (const b of importedBottles) {
-      createBottle.mutate({
-        ...b,
-        user_id: user.id,
-        active: true,
-        is_premium: b.price_tier === 'premium' || b.price_tier === 'luxury',
-        proof: b.abv ? b.abv * 2 : null,
-        notes: null,
-      }, {
-        onSuccess: () => {
-          completed++;
-          if (completed === importedBottles.length) onDone();
-        },
-      });
-    }
+    await Promise.all(
+      importedBottles.map(b =>
+        bottleService.create({
+          ...b,
+          user_id: user.id,
+          active: true,
+          is_premium: b.price_tier === 'premium' || b.price_tier === 'luxury',
+          proof: b.abv ? b.abv * 2 : null,
+          notes: null,
+        })
+      )
+    );
+    queryClient.invalidateQueries({ queryKey: ['bottles', 'active'] });
+    onDone();
   };
 
   const handleDeactivate = (id: string) => {

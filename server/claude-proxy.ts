@@ -21,7 +21,7 @@ export function claudeProxyPlugin(): Plugin {
         }
 
         try {
-          const { apiKey, systemPrompt, userPrompt, messages } = JSON.parse(body);
+          const { apiKey, systemPrompt, userPrompt, messages, model } = JSON.parse(body);
 
           if (!apiKey) {
             res.statusCode = 400;
@@ -40,7 +40,7 @@ export function claudeProxyPlugin(): Plugin {
               'anthropic-version': '2023-06-01',
             },
             body: JSON.stringify({
-              model: 'claude-haiku-4-5-20251001',
+              model: model || 'claude-haiku-4-5-20251001',
               max_tokens: 4096,
               system: systemPrompt,
               messages: userMessages,

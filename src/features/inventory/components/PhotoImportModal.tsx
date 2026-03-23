@@ -19,7 +19,7 @@ interface IdentifiedBottle {
 }
 
 interface PhotoImportModalProps {
-  onImport: (bottles: Omit<IdentifiedBottle, 'confidence' | 'selected'>[]) => void;
+  onImport: (bottles: Omit<IdentifiedBottle, 'confidence' | 'selected'>[]) => Promise<void> | void;
   onClose: () => void;
 }
 
@@ -75,6 +75,7 @@ export function PhotoImportModal({ onImport, onClose }: PhotoImportModalProps) {
   const [mediaType, setMediaType] = useState<'image/jpeg' | 'image/png' | 'image/webp'>('image/jpeg');
   const [bottles, setBottles] = useState<IdentifiedBottle[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [importing, setImporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -135,12 +136,18 @@ export function PhotoImportModal({ onImport, onClose }: PhotoImportModalProps) {
     setBottles(prev => prev.map(b => ({ ...b, selected: !allSelected })));
   };
 
-  const handleImport = () => {
+  const handleImport = async () => {
     const selected = bottles
       .filter(b => b.selected)
       .map(({ confidence: _, selected: __, ...rest }) => rest);
-    if (selected.length > 0) {
-      onImport(selected);
+    if (selected.length === 0) return;
+    setImporting(true);
+    setError(null);
+    try {
+      await onImport(selected);
+    } catch (err) {
+      setError(`Import failed: ${(err as Error).message}`);
+      setImporting(false);
     }
   };
 
@@ -309,10 +316,10 @@ export function PhotoImportModal({ onImport, onClose }: PhotoImportModalProps) {
               </button>
               <button
                 onClick={handleImport}
-                disabled={selectedCount === 0}
+                disabled={selectedCount === 0 || importing}
                 className="flex-1 rounded-button bg-accent-gold py-2.5 text-sm font-medium text-bg-base transition-colors hover:bg-accent-amber disabled:opacity-50"
               >
-                Add {selectedCount} {selectedCount === 1 ? 'Bottle' : 'Bottles'}
+                {importing ? 'Adding...' : `Add ${selectedCount} ${selectedCount === 1 ? 'Bottle' : 'Bottles'}`}
               </button>
             </div>
           </div>

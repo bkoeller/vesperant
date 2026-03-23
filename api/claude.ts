@@ -5,7 +5,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { apiKey, systemPrompt, userPrompt, messages } = req.body;
+  const { apiKey, systemPrompt, userPrompt, messages, model } = req.body;
 
   if (!apiKey) {
     return res.status(400).json({ error: 'Missing API key' });
@@ -23,7 +23,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
+        model: model || 'claude-haiku-4-5-20251001',
         max_tokens: 4096,
         system: systemPrompt,
         messages: userMessages,

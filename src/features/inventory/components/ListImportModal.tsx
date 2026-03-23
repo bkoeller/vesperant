@@ -18,7 +18,7 @@ interface IdentifiedBottle {
 }
 
 interface ListImportModalProps {
-  onImport: (bottles: Omit<IdentifiedBottle, 'selected'>[]) => void;
+  onImport: (bottles: Omit<IdentifiedBottle, 'selected'>[]) => Promise<void> | void;
   onClose: () => void;
 }
 
@@ -65,6 +65,7 @@ export function ListImportModal({ onImport, onClose }: ListImportModalProps) {
   const [text, setText] = useState('');
   const [bottles, setBottles] = useState<IdentifiedBottle[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [importing, setImporting] = useState(false);
 
   const handleAnalyze = async () => {
     if (!text.trim()) return;
@@ -101,12 +102,18 @@ export function ListImportModal({ onImport, onClose }: ListImportModalProps) {
     setBottles(prev => prev.map(b => ({ ...b, selected: !allSelected })));
   };
 
-  const handleImport = () => {
+  const handleImport = async () => {
     const selected = bottles
       .filter(b => b.selected)
       .map(({ selected: _, ...rest }) => rest);
-    if (selected.length > 0) {
-      onImport(selected);
+    if (selected.length === 0) return;
+    setImporting(true);
+    setError(null);
+    try {
+      await onImport(selected);
+    } catch (err) {
+      setError(`Import failed: ${(err as Error).message}`);
+      setImporting(false);
     }
   };
 
@@ -244,10 +251,10 @@ export function ListImportModal({ onImport, onClose }: ListImportModalProps) {
               </button>
               <button
                 onClick={handleImport}
-                disabled={selectedCount === 0}
+                disabled={selectedCount === 0 || importing}
                 className="flex-1 rounded-button bg-accent-gold py-2.5 text-sm font-medium text-bg-base transition-colors hover:bg-accent-amber disabled:opacity-50"
               >
-                Add {selectedCount} {selectedCount === 1 ? 'Bottle' : 'Bottles'}
+                {importing ? 'Adding...' : `Add ${selectedCount} ${selectedCount === 1 ? 'Bottle' : 'Bottles'}`}
               </button>
             </div>
           </div>

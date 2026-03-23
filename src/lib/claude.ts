@@ -90,7 +90,7 @@ export async function callClaudeWithVision(
   const res = await fetch('/api/claude', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ apiKey, systemPrompt, messages }),
+    body: JSON.stringify({ apiKey, systemPrompt, messages, model: 'claude-sonnet-4-6' }),
   });
 
   if (!res.ok) {

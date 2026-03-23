@@ -174,7 +174,7 @@ export function RecipesPage() {
               <button
                 key={tag.value}
                 onClick={() => toggleTag(tag.value)}
-                className={`rounded-pill px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                className={`rounded-pill px-2.5 py-1 text-xs font-medium transition-colors ${
                   activeTags.has(tag.value)
                     ? 'bg-accent-gold text-bg-base'
                     : 'bg-bg-surface text-text-secondary hover:bg-bg-hover'

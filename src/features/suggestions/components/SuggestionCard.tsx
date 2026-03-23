@@ -29,7 +29,7 @@ export function SuggestionCard({ suggestion, onMakeThis }: SuggestionCardProps) 
     <div className={`rounded-card border p-4 ${config.borderClass}`}>
       {/* Header */}
       <div>
-        <span className={`inline-block rounded-pill px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider ${config.labelClass}`}>
+        <span className={`inline-block rounded-pill px-2 py-0.5 text-xs font-medium uppercase tracking-wider ${config.labelClass}`}>
           {config.label}
         </span>
         <h3 className="mt-2 font-serif text-xl font-semibold text-text-primary">
@@ -91,13 +91,13 @@ export function SuggestionCard({ suggestion, onMakeThis }: SuggestionCardProps) 
           {recipe.proof_warning && (
             <div className="mt-2 flex items-start gap-1.5 rounded-button bg-warning/10 p-2">
               <AlertTriangle size={12} className="mt-0.5 flex-shrink-0 text-warning" />
-              <p className="text-[11px] text-warning">{recipe.proof_warning}</p>
+              <p className="text-xs text-warning">{recipe.proof_warning}</p>
             </div>
           )}
           {recipe.value_notes && (
             <div className="mt-1.5 flex items-start gap-1.5 rounded-button p-2" style={{ backgroundColor: 'rgba(201, 168, 76, 0.05)' }}>
               <Info size={12} className="mt-0.5 flex-shrink-0 text-accent-gold-dim" />
-              <p className="text-[11px] text-text-secondary">{recipe.value_notes}</p>
+              <p className="text-xs text-text-secondary">{recipe.value_notes}</p>
             </div>
           )}
         </div>

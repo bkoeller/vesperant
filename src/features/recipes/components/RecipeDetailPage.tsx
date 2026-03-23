@@ -141,7 +141,7 @@ export function RecipeDetailPage() {
       {recipe.tags && recipe.tags.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
           {recipe.tags.map(tag => (
-            <span key={tag} className="rounded-pill bg-bg-hover px-2 py-0.5 text-[10px] font-medium text-text-tertiary">
+            <span key={tag} className="rounded-pill bg-bg-hover px-2 py-0.5 text-xs font-medium text-text-tertiary">
               {tag}
             </span>
           ))}
@@ -157,10 +157,10 @@ export function RecipeDetailPage() {
               <div className="flex items-baseline gap-2">
                 <span className="font-medium text-text-primary">{ing.ingredient_name}</span>
                 {ing.optional && (
-                  <span className="text-[10px] italic text-text-tertiary">optional</span>
+                  <span className="text-xs italic text-text-tertiary">optional</span>
                 )}
                 {ing.notes && (
-                  <span className="text-[10px] text-text-tertiary">({ing.notes})</span>
+                  <span className="text-xs text-text-tertiary">({ing.notes})</span>
                 )}
               </div>
               <div className="flex items-baseline gap-2 text-right">
@@ -168,7 +168,7 @@ export function RecipeDetailPage() {
                   {formatQuantity(ing.quantity, ing.unit)}
                 </span>
                 {ROLE_LABELS[ing.role] && (
-                  <span className="text-[10px] text-text-tertiary">{ROLE_LABELS[ing.role]}</span>
+                  <span className="text-xs text-text-tertiary">{ROLE_LABELS[ing.role]}</span>
                 )}
               </div>
             </li>

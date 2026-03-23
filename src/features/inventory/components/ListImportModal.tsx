@@ -278,7 +278,7 @@ export function ListImportModal({ onClose }: ListImportModalProps) {
                     {bottle.tags.length > 0 && (
                       <div className="mt-1 flex flex-wrap gap-1">
                         {bottle.tags.map(tag => (
-                          <span key={tag} className="rounded-full bg-bg-hover px-1.5 py-0.5 text-[10px] text-text-tertiary">
+                          <span key={tag} className="rounded-full bg-bg-hover px-1.5 py-0.5 text-xs text-text-tertiary">
                             {tag}
                           </span>
                         ))}

@@ -59,7 +59,7 @@ function LogEntry({ log, onDelete }: { log: CocktailLog; onDelete: (id: string) 
         <>
           <button
             onClick={() => setExpanded(e => !e)}
-            className="mt-2 flex items-center gap-1 text-[11px] text-text-tertiary hover:text-text-secondary"
+            className="mt-2 flex items-center gap-1 text-xs text-text-tertiary hover:text-text-secondary"
           >
             {expanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
             {expanded ? 'Less' : 'More'}
@@ -114,7 +114,7 @@ function SuggestionSessionEntry({ session }: { session: SuggestionHistorySession
           {session.suggestions.map((s, i) => (
             <div key={i} className="flex flex-col gap-1">
               <div className="flex items-center gap-2">
-                <span className={`rounded-pill px-2 py-0.5 text-[10px] font-medium ${ARCHETYPE_STYLES[s.archetype] ?? ''}`}>
+                <span className={`rounded-pill px-2 py-0.5 text-xs font-medium ${ARCHETYPE_STYLES[s.archetype] ?? ''}`}>
                   {s.archetype}
                 </span>
                 <span className="text-sm font-medium text-text-primary">{s.recipe_name}</span>
@@ -240,7 +240,7 @@ export function HistoryPage() {
               <button
                 key={r ?? 'all'}
                 onClick={() => setRatingFilter(r)}
-                className={`rounded-pill px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                className={`rounded-pill px-2.5 py-1 text-xs font-medium transition-colors ${
                   ratingFilter === r
                     ? 'bg-accent-gold text-bg-base'
                     : 'bg-bg-surface text-text-secondary hover:bg-bg-hover'

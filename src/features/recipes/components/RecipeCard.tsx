@@ -26,22 +26,22 @@ export function RecipeCard({ recipe, canMake, missingCount }: RecipeCardProps) {
             </p>
           )}
           <div className="mt-2 flex flex-wrap items-center gap-2">
-            <span className="rounded-pill bg-bg-hover px-2 py-0.5 text-[10px] font-medium text-text-secondary">
+            <span className="rounded-pill bg-bg-hover px-2 py-0.5 text-xs font-medium text-text-secondary">
               {METHOD_LABELS[recipe.method]}
             </span>
             {recipe.glassware && (
-              <span className="text-[10px] text-text-tertiary">{recipe.glassware}</span>
+              <span className="text-xs text-text-tertiary">{recipe.glassware}</span>
             )}
           </div>
         </div>
         <div className="flex-shrink-0 pt-1">
           {canMake === true && (
-            <span className="rounded-pill bg-success/15 px-2 py-0.5 text-[10px] font-medium text-success">
+            <span className="rounded-pill bg-success/15 px-2 py-0.5 text-xs font-medium text-success">
               Can make
             </span>
           )}
           {canMake === false && missingCount !== undefined && missingCount > 0 && (
-            <span className="rounded-pill bg-bg-hover px-2 py-0.5 text-[10px] font-medium text-text-tertiary">
+            <span className="rounded-pill bg-bg-hover px-2 py-0.5 text-xs font-medium text-text-tertiary">
               {missingCount} missing
             </span>
           )}

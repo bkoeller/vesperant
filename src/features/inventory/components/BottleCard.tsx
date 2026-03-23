@@ -20,12 +20,12 @@ export function BottleCard({ bottle, onEdit, onDeactivate, onDelete }: BottleCar
             <span className="text-xs text-text-tertiary">{bottle.subcategory}</span>
           )}
           {bottle.abv && (
-            <span className="rounded-pill bg-bg-hover px-1.5 py-0.5 text-[10px] font-medium text-text-secondary">
+            <span className="rounded-pill bg-bg-hover px-1.5 py-0.5 text-xs font-medium text-text-secondary">
               {bottle.abv}%
             </span>
           )}
           {bottle.is_premium && (
-            <span className="rounded-pill bg-accent-gold/10 px-1.5 py-0.5 text-[10px] font-medium text-accent-gold">
+            <span className="rounded-pill bg-accent-gold/10 px-1.5 py-0.5 text-xs font-medium text-accent-gold">
               {bottle.price_tier ?? 'premium'}
             </span>
           )}

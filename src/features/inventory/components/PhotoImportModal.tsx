@@ -329,7 +329,7 @@ export function PhotoImportModal({ onClose }: PhotoImportModalProps) {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium text-text-primary truncate">{bottle.name}</span>
-                      <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${CONFIDENCE_STYLES[bottle.confidence]}`}>
+                      <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-xs font-medium ${CONFIDENCE_STYLES[bottle.confidence]}`}>
                         {bottle.confidence}
                       </span>
                     </div>
@@ -342,7 +342,7 @@ export function PhotoImportModal({ onClose }: PhotoImportModalProps) {
                     {bottle.tags.length > 0 && (
                       <div className="mt-1 flex flex-wrap gap-1">
                         {bottle.tags.map(tag => (
-                          <span key={tag} className="rounded-full bg-bg-hover px-1.5 py-0.5 text-[10px] text-text-tertiary">
+                          <span key={tag} className="rounded-full bg-bg-hover px-1.5 py-0.5 text-xs text-text-tertiary">
                             {tag}
                           </span>
                         ))}

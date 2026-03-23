@@ -54,17 +54,29 @@
 
   body {
     font-family: var(--font-sans);
-    font-size: 1.0625rem;
-    line-height: 1.6;
+    font-size: 1rem;
+    line-height: 1.5;
     min-height: 100vh;
     min-height: 100dvh;
     margin: 0;
   }
 
-  @media (min-width: 640px) {
-    body {
-      font-size: 0.9375rem;
-      line-height: 1.5;
+  /*
+   * Mobile readability boost: scale up all Tailwind text utilities.
+   * Default Tailwind: text-xs=12px, text-sm=14px, text-base=16px, text-lg=18px
+   * Mobile override:  text-xs=14px, text-sm=16px, text-base=17px, text-lg=20px
+   * At sm (640px+) these revert to Tailwind defaults.
+   */
+  @media (max-width: 639px) {
+    :root {
+      --text-xs: 0.875rem;
+      --text-xs--line-height: 1.4;
+      --text-sm: 1rem;
+      --text-sm--line-height: 1.5;
+      --text-base: 1.0625rem;
+      --text-base--line-height: 1.6;
+      --text-lg: 1.25rem;
+      --text-lg--line-height: 1.5;
     }
   }
 

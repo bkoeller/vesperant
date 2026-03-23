@@ -1,8 +1,11 @@
 import { useState } from 'react';
-import { X, Check, Loader2, AlertTriangle } from 'lucide-react';
+import { X, Check, Loader2, AlertTriangle, CheckCircle } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
 import { callClaude } from '@/lib/claude';
 import { buildListImportSystemPrompt, buildListImportUserPrompt } from '@/lib/prompts';
 import type { SpiritCategory, PriceTier } from '@/types/database.types';
+import { useAuth } from '@/features/auth/hooks/useAuth';
+import { bottleService } from '../inventory.service';
 import { CATEGORY_LABELS } from '../inventory.types';
 
 interface IdentifiedBottle {
@@ -18,11 +21,10 @@ interface IdentifiedBottle {
 }
 
 interface ListImportModalProps {
-  onImport: (bottles: Omit<IdentifiedBottle, 'selected'>[]) => Promise<void> | void;
   onClose: () => void;
 }
 
-type Phase = 'input' | 'analyzing' | 'review';
+type Phase = 'input' | 'analyzing' | 'review' | 'importing' | 'done';
 
 const VALID_CATEGORIES = new Set<string>([
   'whisky', 'gin', 'vodka', 'rum', 'tequila', 'mezcal', 'brandy', 'cognac',
@@ -60,12 +62,14 @@ function parseBottleResponse(raw: string): IdentifiedBottle[] {
   }));
 }
 
-export function ListImportModal({ onImport, onClose }: ListImportModalProps) {
+export function ListImportModal({ onClose }: ListImportModalProps) {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [phase, setPhase] = useState<Phase>('input');
   const [text, setText] = useState('');
   const [bottles, setBottles] = useState<IdentifiedBottle[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [importing, setImporting] = useState(false);
+  const [result, setResult] = useState<{ added: number; skipped: number }>({ added: 0, skipped: 0 });
 
   const handleAnalyze = async () => {
     if (!text.trim()) return;
@@ -103,18 +107,59 @@ export function ListImportModal({ onImport, onClose }: ListImportModalProps) {
   };
 
   const handleImport = async () => {
+    if (!user) return;
     const selected = bottles
       .filter(b => b.selected)
       .map(({ selected: _, ...rest }) => rest);
     if (selected.length === 0) return;
-    setImporting(true);
+
+    setPhase('importing');
     setError(null);
+
+    // Fetch fresh inventory to check for dupes
+    let existingNames: Set<string>;
     try {
-      await onImport(selected);
-    } catch (err) {
-      setError(`Import failed: ${(err as Error).message}`);
-      setImporting(false);
+      const existing = await bottleService.getActive();
+      existingNames = new Set(existing.map(b => b.name.toLowerCase()));
+    } catch {
+      existingNames = new Set();
     }
+
+    // Deduplicate within batch and against existing inventory
+    const seen = new Set<string>();
+    const toInsert = selected.filter(b => {
+      const key = b.name.toLowerCase();
+      if (existingNames.has(key) || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    const skippedCount = selected.length - toInsert.length;
+    let addedCount = 0;
+
+    if (toInsert.length > 0) {
+      const results = await Promise.allSettled(
+        toInsert.map(b =>
+          bottleService.create({
+            ...b,
+            user_id: user.id,
+            active: true,
+            is_premium: b.price_tier === 'premium' || b.price_tier === 'luxury',
+            proof: b.abv ? b.abv * 2 : null,
+            notes: null,
+          })
+        )
+      );
+      addedCount = results.filter(r => r.status === 'fulfilled').length;
+      const failedCount = results.filter(r => r.status === 'rejected').length;
+      if (failedCount > 0) {
+        setError(`${failedCount} ${failedCount === 1 ? 'bottle' : 'bottles'} failed to save.`);
+      }
+      queryClient.invalidateQueries({ queryKey: ['bottles', 'active'] });
+    }
+
+    setResult({ added: addedCount, skipped: skippedCount });
+    setPhase('done');
   };
 
   const selectedCount = bottles.filter(b => b.selected).length;
@@ -127,6 +172,8 @@ export function ListImportModal({ onImport, onClose }: ListImportModalProps) {
             {phase === 'input' && 'Import from List'}
             {phase === 'analyzing' && 'Analyzing...'}
             {phase === 'review' && 'Review Bottles'}
+            {phase === 'importing' && 'Adding...'}
+            {phase === 'done' && 'Import Complete'}
           </h2>
           <button
             onClick={onClose}
@@ -251,12 +298,48 @@ export function ListImportModal({ onImport, onClose }: ListImportModalProps) {
               </button>
               <button
                 onClick={handleImport}
-                disabled={selectedCount === 0 || importing}
+                disabled={selectedCount === 0}
                 className="flex-1 rounded-button bg-accent-gold py-2.5 text-sm font-medium text-bg-base transition-colors hover:bg-accent-amber disabled:opacity-50"
               >
-                {importing ? 'Adding...' : `Add ${selectedCount} ${selectedCount === 1 ? 'Bottle' : 'Bottles'}`}
+                Add {selectedCount} {selectedCount === 1 ? 'Bottle' : 'Bottles'}
               </button>
             </div>
+          </div>
+        )}
+
+        {/* IMPORTING PHASE */}
+        {phase === 'importing' && (
+          <div className="flex flex-col items-center gap-6 py-12">
+            <Loader2 size={32} className="animate-spin text-accent-gold" />
+            <p className="text-sm text-text-secondary">Adding bottles to your inventory...</p>
+          </div>
+        )}
+
+        {/* DONE PHASE */}
+        {phase === 'done' && (
+          <div className="flex flex-col items-center gap-4 py-8">
+            <CheckCircle size={40} className="text-success" />
+            <div className="text-center">
+              {result.added > 0 && (
+                <p className="text-sm text-text-primary">
+                  Added {result.added} {result.added === 1 ? 'bottle' : 'bottles'} to your inventory.
+                </p>
+              )}
+              {result.skipped > 0 && (
+                <p className="mt-1 text-xs text-text-tertiary">
+                  {result.skipped} already in inventory, skipped.
+                </p>
+              )}
+              {result.added === 0 && result.skipped === 0 && (
+                <p className="text-sm text-text-secondary">No bottles were added.</p>
+              )}
+            </div>
+            <button
+              onClick={onClose}
+              className="mt-2 rounded-button bg-accent-gold px-8 py-2.5 text-sm font-medium text-bg-base transition-colors hover:bg-accent-amber"
+            >
+              Done
+            </button>
           </div>
         )}
       </div>

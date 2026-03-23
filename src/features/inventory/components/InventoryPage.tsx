@@ -1,10 +1,8 @@
 import { useState, useMemo } from 'react';
 import { Plus, Search, Wine, ChevronDown, ChevronRight, Upload, Camera, FileText } from 'lucide-react';
-import { useQueryClient } from '@tanstack/react-query';
 import type { Bottle, SpiritCategory, PriceTier } from '@/types/database.types';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useBottles, useCreateBottle, useUpdateBottle, useDeactivateBottle, useDeleteBottle } from '../hooks/useBottles';
-import { bottleService } from '../inventory.service';
 import { useSeedInventory } from '../hooks/useSeedInventory';
 import { CATEGORY_LABELS, CATEGORY_ORDER } from '../inventory.types';
 import { BottleCard } from './BottleCard';
@@ -21,7 +19,6 @@ export function InventoryPage() {
   const deactivateBottle = useDeactivateBottle();
   const deleteBottle = useDeleteBottle();
   const seedInventory = useSeedInventory();
-  const queryClient = useQueryClient();
 
   const [showForm, setShowForm] = useState(false);
   const [showPhotoImport, setShowPhotoImport] = useState(false);
@@ -93,43 +90,6 @@ export function InventoryPage() {
       { id: editingBottle.id, updates: { ...data, proof: data.abv ? data.abv * 2 : null } },
       { onSuccess: () => setEditingBottle(null) }
     );
-  };
-
-  const handleBulkImport = async (importedBottles: { name: string; brand: string | null; category: SpiritCategory; subcategory: string | null; spirit_type: string | null; abv: number | null; price_tier: PriceTier | null; tags: string[] }[], onDone: () => void) => {
-    if (!user) return;
-
-    // Filter out bottles that already exist in inventory (case-insensitive)
-    const existingNames = new Set((bottles ?? []).map(b => b.name.toLowerCase()));
-    const seen = new Set<string>();
-    const newBottles = importedBottles.filter(b => {
-      const key = b.name.toLowerCase();
-      if (existingNames.has(key) || seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
-
-    const skipped = importedBottles.length - newBottles.length;
-
-    if (newBottles.length > 0) {
-      await Promise.all(
-        newBottles.map(b =>
-          bottleService.create({
-            ...b,
-            user_id: user.id,
-            active: true,
-            is_premium: b.price_tier === 'premium' || b.price_tier === 'luxury',
-            proof: b.abv ? b.abv * 2 : null,
-            notes: null,
-          })
-        )
-      );
-      queryClient.invalidateQueries({ queryKey: ['bottles', 'active'] });
-    }
-
-    if (skipped > 0) {
-      setDuplicateWarning(`${skipped} ${skipped === 1 ? 'bottle was' : 'bottles were'} already in your inventory and skipped.`);
-    }
-    onDone();
   };
 
   const handleDeactivate = (id: string) => {
@@ -273,17 +233,11 @@ export function InventoryPage() {
       </div>
 
       {showPhotoImport && (
-        <PhotoImportModal
-          onImport={bottles => handleBulkImport(bottles, () => setShowPhotoImport(false))}
-          onClose={() => setShowPhotoImport(false)}
-        />
+        <PhotoImportModal onClose={() => setShowPhotoImport(false)} />
       )}
 
       {showListImport && (
-        <ListImportModal
-          onImport={bottles => handleBulkImport(bottles, () => setShowListImport(false))}
-          onClose={() => setShowListImport(false)}
-        />
+        <ListImportModal onClose={() => setShowListImport(false)} />
       )}
 
       {showForm && (

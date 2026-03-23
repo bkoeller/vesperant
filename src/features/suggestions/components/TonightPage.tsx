@@ -9,8 +9,8 @@ import { hasClaudeApiKey } from '@/lib/claude';
 import type { SuggestionResult } from '@/lib/claude';
 
 export function TonightPage() {
-  const { suggestions, loading, error, weather, suggest, refine, reset, responseTimeMs } = useSuggestions();
   const { user } = useAuth();
+  const { suggestions, loading, error, weather, suggest, refine, reset, responseTimeMs, sessionId } = useSuggestions(user?.id);
   const createLog = useCreateLog();
   const [mood, setMood] = useState('');
   const [occasion, setOccasion] = useState('');
@@ -47,7 +47,7 @@ export function TonightPage() {
       tasting_notes: data.tasting_notes,
       social_context: data.social_context,
       bottles_used: [],
-      suggestion_session_id: null,
+      suggestion_session_id: sessionId,
     }, {
       onSuccess: () => setLoggingSuggestion(null),
     });

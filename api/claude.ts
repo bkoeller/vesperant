@@ -5,13 +5,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { apiKey, systemPrompt, userPrompt } = req.body;
+  const { apiKey, systemPrompt, userPrompt, messages } = req.body;
 
   if (!apiKey) {
     return res.status(400).json({ error: 'Missing API key' });
   }
 
   try {
+    // Support either simple text (userPrompt) or structured messages (for vision)
+    const userMessages = messages ?? [{ role: 'user', content: userPrompt }];
+
     const anthropicRes = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -23,7 +26,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         model: 'claude-haiku-4-5-20251001',
         max_tokens: 4096,
         system: systemPrompt,
-        messages: [{ role: 'user', content: userPrompt }],
+        messages: userMessages,
       }),
     });
 

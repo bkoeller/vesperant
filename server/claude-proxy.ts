@@ -21,13 +21,16 @@ export function claudeProxyPlugin(): Plugin {
         }
 
         try {
-          const { apiKey, systemPrompt, userPrompt } = JSON.parse(body);
+          const { apiKey, systemPrompt, userPrompt, messages } = JSON.parse(body);
 
           if (!apiKey) {
             res.statusCode = 400;
             res.end(JSON.stringify({ error: 'Missing API key' }));
             return;
           }
+
+          // Support either simple text (userPrompt) or structured messages (for vision)
+          const userMessages = messages ?? [{ role: 'user', content: userPrompt }];
 
           const anthropicRes = await fetch('https://api.anthropic.com/v1/messages', {
             method: 'POST',
@@ -40,7 +43,7 @@ export function claudeProxyPlugin(): Plugin {
               model: 'claude-haiku-4-5-20251001',
               max_tokens: 4096,
               system: systemPrompt,
-              messages: [{ role: 'user', content: userPrompt }],
+              messages: userMessages,
             }),
           });
 

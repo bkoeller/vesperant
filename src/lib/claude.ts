@@ -64,3 +64,40 @@ export async function callClaude(
   const data = await res.json();
   return data.content;
 }
+
+export async function callClaudeWithVision(
+  systemPrompt: string,
+  imageBase64: string,
+  mediaType: 'image/jpeg' | 'image/png' | 'image/webp',
+  textPrompt: string,
+): Promise<string> {
+  const apiKey = getClaudeApiKey();
+  if (!apiKey) throw new Error('Claude API key not configured');
+
+  const messages = [
+    {
+      role: 'user',
+      content: [
+        {
+          type: 'image',
+          source: { type: 'base64', media_type: mediaType, data: imageBase64 },
+        },
+        { type: 'text', text: textPrompt },
+      ],
+    },
+  ];
+
+  const res = await fetch('/api/claude', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ apiKey, systemPrompt, messages }),
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Claude API error: ${err}`);
+  }
+
+  const data = await res.json();
+  return data.content;
+}

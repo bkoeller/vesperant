@@ -1,8 +1,18 @@
 import { useState, useMemo } from 'react';
-import { Clock, Search, Star, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
+import { Clock, Search, Star, Trash2, ChevronDown, ChevronUp, Sparkles } from 'lucide-react';
 import { format } from 'date-fns';
 import { useCocktailLogs, useDeleteLog } from '../hooks/useCocktailLog';
+import { useSuggestionHistory } from '@/features/suggestions/hooks/useSuggestionHistory';
 import type { CocktailLog } from '@/types/database.types';
+import type { SuggestionHistorySession } from '@/features/suggestions/suggestion.service';
+
+type Tab = 'cocktails' | 'suggestions';
+
+const ARCHETYPE_STYLES: Record<string, string> = {
+  safe: 'bg-archetype-safe/20 text-archetype-safe',
+  adventurous: 'bg-archetype-adventurous/20 text-archetype-adventurous',
+  cultural: 'bg-archetype-cultural/20 text-archetype-cultural',
+};
 
 function StarRating({ rating }: { rating: number }) {
   return (
@@ -71,13 +81,62 @@ function LogEntry({ log, onDelete }: { log: CocktailLog; onDelete: (id: string) 
   );
 }
 
+function SuggestionSessionEntry({ session }: { session: SuggestionHistorySession }) {
+  const [expanded, setExpanded] = useState(false);
+  const ctx = session.context_signals as { mood?: string; occasion?: string; weather?: { temp_f?: number; condition?: string } };
+
+  return (
+    <div className="rounded-card bg-bg-surface p-4">
+      <button
+        onClick={() => setExpanded(e => !e)}
+        className="flex w-full items-start justify-between gap-3 text-left"
+      >
+        <div className="flex-1 min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            {session.suggestions.map((s, i) => (
+              <span key={i} className="font-serif text-base font-semibold text-text-primary">
+                {s.recipe_name}{i < session.suggestions.length - 1 ? ',' : ''}
+              </span>
+            ))}
+          </div>
+          <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-text-tertiary">
+            <span>{format(new Date(session.created_at), 'MMM d, yyyy · h:mm a')}</span>
+            {ctx.mood && <span>· {ctx.mood}</span>}
+            {ctx.occasion && <span>· {ctx.occasion}</span>}
+            {ctx.weather?.temp_f && <span>· {ctx.weather.temp_f}°F</span>}
+          </div>
+        </div>
+        {expanded ? <ChevronUp size={14} className="mt-1 shrink-0 text-text-tertiary" /> : <ChevronDown size={14} className="mt-1 shrink-0 text-text-tertiary" />}
+      </button>
+
+      {expanded && (
+        <div className="mt-3 flex flex-col gap-2 border-t border-bg-hover pt-3">
+          {session.suggestions.map((s, i) => (
+            <div key={i} className="flex flex-col gap-1">
+              <div className="flex items-center gap-2">
+                <span className={`rounded-pill px-2 py-0.5 text-[10px] font-medium ${ARCHETYPE_STYLES[s.archetype] ?? ''}`}>
+                  {s.archetype}
+                </span>
+                <span className="text-sm font-medium text-text-primary">{s.recipe_name}</span>
+              </div>
+              <p className="text-xs text-text-secondary">{s.reasoning}</p>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function HistoryPage() {
-  const { data: logs, isLoading } = useCocktailLogs();
+  const { data: logs, isLoading: logsLoading } = useCocktailLogs();
+  const { data: suggestionSessions, isLoading: sugLoading } = useSuggestionHistory();
   const deleteLog = useDeleteLog();
+  const [tab, setTab] = useState<Tab>('cocktails');
   const [searchQuery, setSearchQuery] = useState('');
   const [ratingFilter, setRatingFilter] = useState<number | null>(null);
 
-  const filtered = useMemo(() => {
+  const filteredLogs = useMemo(() => {
     if (!logs) return [];
     let result = logs;
     if (searchQuery) {
@@ -94,11 +153,25 @@ export function HistoryPage() {
     return result;
   }, [logs, searchQuery, ratingFilter]);
 
+  const filteredSuggestions = useMemo(() => {
+    if (!suggestionSessions) return [];
+    if (!searchQuery) return suggestionSessions;
+    const q = searchQuery.toLowerCase();
+    return suggestionSessions.filter(s =>
+      s.suggestions.some(sug =>
+        sug.recipe_name.toLowerCase().includes(q) ||
+        sug.reasoning.toLowerCase().includes(q)
+      )
+    );
+  }, [suggestionSessions, searchQuery]);
+
   const handleDelete = (id: string) => {
     if (confirm('Delete this log entry?')) {
       deleteLog.mutate(id);
     }
   };
+
+  const isLoading = tab === 'cocktails' ? logsLoading : sugLoading;
 
   if (isLoading) {
     return (
@@ -113,23 +186,54 @@ export function HistoryPage() {
       <div>
         <h1 className="text-3xl font-semibold tracking-tight">History</h1>
         <p className="mt-1 text-sm text-text-secondary">
-          {logs?.length ?? 0} {logs?.length === 1 ? 'cocktail' : 'cocktails'} logged
+          {tab === 'cocktails'
+            ? `${logs?.length ?? 0} ${logs?.length === 1 ? 'cocktail' : 'cocktails'} logged`
+            : `${suggestionSessions?.length ?? 0} ${suggestionSessions?.length === 1 ? 'session' : 'sessions'}`
+          }
         </p>
       </div>
 
-      {/* Search & filter */}
-      {logs && logs.length > 0 && (
-        <div className="flex flex-col gap-3">
-          <div className="relative">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              placeholder="Search history..."
-              className="w-full rounded-button bg-bg-surface py-2.5 pl-9 pr-3 text-sm text-text-primary outline-none ring-1 ring-bg-hover transition-shadow placeholder:text-text-tertiary focus:ring-accent-gold-dim"
-            />
-          </div>
+      {/* Tab switcher */}
+      <div className="flex rounded-button bg-bg-surface p-1">
+        <button
+          onClick={() => { setTab('cocktails'); setSearchQuery(''); setRatingFilter(null); }}
+          className={`flex flex-1 items-center justify-center gap-1.5 rounded-button py-2 text-sm font-medium transition-colors ${
+            tab === 'cocktails'
+              ? 'bg-bg-hover text-text-primary'
+              : 'text-text-tertiary hover:text-text-secondary'
+          }`}
+        >
+          <Clock size={14} />
+          Cocktails
+        </button>
+        <button
+          onClick={() => { setTab('suggestions'); setSearchQuery(''); setRatingFilter(null); }}
+          className={`flex flex-1 items-center justify-center gap-1.5 rounded-button py-2 text-sm font-medium transition-colors ${
+            tab === 'suggestions'
+              ? 'bg-bg-hover text-text-primary'
+              : 'text-text-tertiary hover:text-text-secondary'
+          }`}
+        >
+          <Sparkles size={14} />
+          Suggestions
+        </button>
+      </div>
+
+      {/* Search */}
+      <div className="flex flex-col gap-3">
+        <div className="relative">
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            placeholder={tab === 'cocktails' ? 'Search history...' : 'Search suggestions...'}
+            className="w-full rounded-button bg-bg-surface py-2.5 pl-9 pr-3 text-sm text-text-primary outline-none ring-1 ring-bg-hover transition-shadow placeholder:text-text-tertiary focus:ring-accent-gold-dim"
+          />
+        </div>
+
+        {/* Rating filter — only for cocktails tab */}
+        {tab === 'cocktails' && logs && logs.length > 0 && (
           <div className="flex items-center gap-2">
             <span className="text-xs text-text-tertiary">Filter:</span>
             {[null, 5, 4, 3, 2, 1].map(r => (
@@ -146,25 +250,44 @@ export function HistoryPage() {
               </button>
             ))}
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
-      {/* Timeline */}
-      {(!logs || logs.length === 0) ? (
-        <div className="flex flex-col items-center gap-4 pt-8 text-center">
-          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-bg-surface">
-            <Clock size={28} className="text-accent-gold-dim" />
+      {/* Content */}
+      {tab === 'cocktails' ? (
+        (!logs || logs.length === 0) ? (
+          <div className="flex flex-col items-center gap-4 pt-8 text-center">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-bg-surface">
+              <Clock size={28} className="text-accent-gold-dim" />
+            </div>
+            <p className="text-text-secondary">No cocktails logged yet. Make something tonight.</p>
           </div>
-          <p className="text-text-secondary">No cocktails logged yet. Make something tonight.</p>
-        </div>
-      ) : filtered.length === 0 ? (
-        <p className="pt-4 text-center text-sm text-text-tertiary">No entries match your search.</p>
+        ) : filteredLogs.length === 0 ? (
+          <p className="pt-4 text-center text-sm text-text-tertiary">No entries match your search.</p>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {filteredLogs.map(log => (
+              <LogEntry key={log.id} log={log} onDelete={handleDelete} />
+            ))}
+          </div>
+        )
       ) : (
-        <div className="flex flex-col gap-2">
-          {filtered.map(log => (
-            <LogEntry key={log.id} log={log} onDelete={handleDelete} />
-          ))}
-        </div>
+        (!suggestionSessions || suggestionSessions.length === 0) ? (
+          <div className="flex flex-col items-center gap-4 pt-8 text-center">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-bg-surface">
+              <Sparkles size={28} className="text-accent-gold-dim" />
+            </div>
+            <p className="text-text-secondary">No suggestions yet. Ask the bartender tonight.</p>
+          </div>
+        ) : filteredSuggestions.length === 0 ? (
+          <p className="pt-4 text-center text-sm text-text-tertiary">No sessions match your search.</p>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {filteredSuggestions.map(session => (
+              <SuggestionSessionEntry key={session.id} session={session} />
+            ))}
+          </div>
+        )
       )}
     </div>
   );

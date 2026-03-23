@@ -5,6 +5,7 @@ import { buildSuggestionSystemPrompt } from '@/lib/prompts';
 import { getLocationWeather, type WeatherContext } from '@/lib/weather';
 import { getEventsNearDate, getSeason, getTimeOfDay } from '@/lib/holidays';
 import { useBottles } from '@/features/inventory/hooks/useBottles';
+import { suggestionService } from '../suggestion.service';
 
 function parseSuggestionResponse(raw: string): SuggestionResult[] {
   let jsonStr = raw.trim();
@@ -95,6 +96,7 @@ function gatherContextSignals(
 function buildSuggestionUserPrompt(
   context: ContextSignals,
   bottles: Bottle[],
+  recentHistory?: string[],
   refinement?: string,
   previousSuggestions?: SuggestionResult[],
 ): string {
@@ -115,6 +117,13 @@ ${JSON.stringify(inventoryByCategory, null, 2)}
 ## Today's Context
 ${JSON.stringify(context, null, 2)}
 `;
+
+  if (recentHistory && recentHistory.length > 0) {
+    prompt += `
+## Recent History (DO NOT suggest these — the user has seen or made them recently)
+${recentHistory.map(name => `- ${name}`).join('\n')}
+`;
+  }
 
   const schemaBlock = `
 {
@@ -170,7 +179,7 @@ Rules:
   return prompt;
 }
 
-export function useSuggestions() {
+export function useSuggestions(userId?: string) {
   const { data: bottles } = useBottles();
   const [suggestions, setSuggestions] = useState<SuggestionResult[] | null>(null);
   const [loading, setLoading] = useState(false);
@@ -178,6 +187,7 @@ export function useSuggestions() {
   const [context, setContext] = useState<ContextSignals | null>(null);
   const [weather, setWeather] = useState<WeatherContext | null>(null);
   const [responseTimeMs, setResponseTimeMs] = useState<number | null>(null);
+  const [sessionId, setSessionId] = useState<string | null>(null);
 
   // Fetch weather on mount
   useEffect(() => {
@@ -202,13 +212,35 @@ export function useSuggestions() {
       const ctx = gatherContextSignals(weather, mood, occasion, guests);
       setContext(ctx);
 
+      // Fetch recent history to avoid repeats
+      let recentHistory: string[] = [];
+      if (userId) {
+        try {
+          recentHistory = await suggestionService.getRecentRecipeNames(userId);
+        } catch {
+          // Non-critical — proceed without history if fetch fails
+        }
+      }
+
       const systemPrompt = buildSuggestionSystemPrompt();
-      const userPrompt = buildSuggestionUserPrompt(ctx, bottles);
+      const userPrompt = buildSuggestionUserPrompt(ctx, bottles, recentHistory);
 
       const start = performance.now();
       const raw = await callClaude(systemPrompt, userPrompt);
       setResponseTimeMs(Math.round(performance.now() - start));
-      setSuggestions(parseSuggestionResponse(raw));
+
+      const parsed = parseSuggestionResponse(raw);
+      setSuggestions(parsed);
+
+      // Persist session + suggestions to DB
+      if (userId) {
+        try {
+          const sid = await suggestionService.saveSession(userId, ctx, parsed);
+          setSessionId(sid);
+        } catch {
+          // Non-critical — suggestions still display even if save fails
+        }
+      }
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -224,13 +256,35 @@ export function useSuggestions() {
     setResponseTimeMs(null);
 
     try {
+      // Include recent history in refinements too
+      let recentHistory: string[] = [];
+      if (userId) {
+        try {
+          recentHistory = await suggestionService.getRecentRecipeNames(userId);
+        } catch {
+          // Non-critical
+        }
+      }
+
       const systemPrompt = buildSuggestionSystemPrompt();
-      const userPrompt = buildSuggestionUserPrompt(context, bottles, refinement, suggestions);
+      const userPrompt = buildSuggestionUserPrompt(context, bottles, recentHistory, refinement, suggestions);
 
       const start = performance.now();
       const raw = await callClaude(systemPrompt, userPrompt);
       setResponseTimeMs(Math.round(performance.now() - start));
-      setSuggestions(parseSuggestionResponse(raw));
+
+      const parsed = parseSuggestionResponse(raw);
+      setSuggestions(parsed);
+
+      // Save refinement results
+      if (userId) {
+        try {
+          const sid = await suggestionService.saveSession(userId, context, parsed);
+          setSessionId(sid);
+        } catch {
+          // Non-critical
+        }
+      }
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -243,7 +297,8 @@ export function useSuggestions() {
     setError(null);
     setContext(null);
     setResponseTimeMs(null);
+    setSessionId(null);
   };
 
-  return { suggestions, context, loading, error, suggest, refine, reset, weather, responseTimeMs };
+  return { suggestions, context, loading, error, suggest, refine, reset, weather, responseTimeMs, sessionId };
 }

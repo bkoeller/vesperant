@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Plus, Search, Wine, ChevronDown, ChevronRight, Upload } from 'lucide-react';
+import { Plus, Search, Wine, ChevronDown, ChevronRight, Upload, Camera, FileText } from 'lucide-react';
 import type { Bottle, SpiritCategory, PriceTier } from '@/types/database.types';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useBottles, useCreateBottle, useUpdateBottle, useDeactivateBottle, useDeleteBottle } from '../hooks/useBottles';
@@ -7,6 +7,9 @@ import { useSeedInventory } from '../hooks/useSeedInventory';
 import { CATEGORY_LABELS, CATEGORY_ORDER } from '../inventory.types';
 import { BottleCard } from './BottleCard';
 import { BottleForm } from './BottleForm';
+import { PhotoImportModal } from './PhotoImportModal';
+import { ListImportModal } from './ListImportModal';
+import { hasClaudeApiKey } from '@/lib/claude';
 
 export function InventoryPage() {
   const { user } = useAuth();
@@ -18,6 +21,8 @@ export function InventoryPage() {
   const seedInventory = useSeedInventory();
 
   const [showForm, setShowForm] = useState(false);
+  const [showPhotoImport, setShowPhotoImport] = useState(false);
+  const [showListImport, setShowListImport] = useState(false);
   const [editingBottle, setEditingBottle] = useState<Bottle | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
@@ -78,6 +83,26 @@ export function InventoryPage() {
       { id: editingBottle.id, updates: { ...data, proof: data.abv ? data.abv * 2 : null } },
       { onSuccess: () => setEditingBottle(null) }
     );
+  };
+
+  const handleBulkImport = (importedBottles: { name: string; brand: string | null; category: SpiritCategory; subcategory: string | null; spirit_type: string | null; abv: number | null; price_tier: PriceTier | null; tags: string[] }[], onDone: () => void) => {
+    if (!user) return;
+    let completed = 0;
+    for (const b of importedBottles) {
+      createBottle.mutate({
+        ...b,
+        user_id: user.id,
+        active: true,
+        is_premium: b.price_tier === 'premium' || b.price_tier === 'luxury',
+        proof: b.abv ? b.abv * 2 : null,
+        notes: null,
+      }, {
+        onSuccess: () => {
+          completed++;
+          if (completed === importedBottles.length) onDone();
+        },
+      });
+    }
   };
 
   const handleDeactivate = (id: string) => {
@@ -181,13 +206,48 @@ export function InventoryPage() {
         </div>
       )}
 
-      <button
-        onClick={() => setShowForm(true)}
-        className="fixed bottom-20 right-4 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-accent-gold shadow-elevated transition-colors hover:bg-accent-amber sm:right-[calc(50%-14rem)]"
-        aria-label="Add bottle"
-      >
-        <Plus size={24} className="text-bg-base" />
-      </button>
+      {/* FAB stack */}
+      <div className="fixed bottom-20 right-4 z-30 flex flex-col-reverse items-center gap-3 sm:right-[calc(50%-14rem)]">
+        <button
+          onClick={() => setShowForm(true)}
+          className="flex h-14 w-14 items-center justify-center rounded-full bg-accent-gold shadow-elevated transition-colors hover:bg-accent-amber"
+          aria-label="Add bottle"
+        >
+          <Plus size={24} className="text-bg-base" />
+        </button>
+        {hasClaudeApiKey() && (
+          <>
+            <button
+              onClick={() => setShowPhotoImport(true)}
+              className="flex h-11 w-11 items-center justify-center rounded-full bg-accent-copper shadow-elevated transition-colors hover:bg-accent-amber"
+              aria-label="Import from photo"
+            >
+              <Camera size={18} className="text-bg-base" />
+            </button>
+            <button
+              onClick={() => setShowListImport(true)}
+              className="flex h-11 w-11 items-center justify-center rounded-full bg-accent-copper shadow-elevated transition-colors hover:bg-accent-amber"
+              aria-label="Import from list"
+            >
+              <FileText size={18} className="text-bg-base" />
+            </button>
+          </>
+        )}
+      </div>
+
+      {showPhotoImport && (
+        <PhotoImportModal
+          onImport={bottles => handleBulkImport(bottles, () => setShowPhotoImport(false))}
+          onClose={() => setShowPhotoImport(false)}
+        />
+      )}
+
+      {showListImport && (
+        <ListImportModal
+          onImport={bottles => handleBulkImport(bottles, () => setShowListImport(false))}
+          onClose={() => setShowListImport(false)}
+        />
+      )}
 
       {showForm && (
         <BottleForm

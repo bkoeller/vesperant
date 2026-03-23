@@ -29,6 +29,7 @@ export function InventoryPage() {
   const [editingBottle, setEditingBottle] = useState<Bottle | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
+  const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
 
   const grouped = useMemo(() => {
     if (!bottles) return [];
@@ -69,6 +70,12 @@ export function InventoryPage() {
     is_premium: boolean; tags: string[]; notes: string | null;
   }) => {
     if (!user) return;
+    const exists = bottles?.some(b => b.name.toLowerCase() === data.name.trim().toLowerCase());
+    if (exists) {
+      setDuplicateWarning(`"${data.name}" is already in your inventory.`);
+      return;
+    }
+    setDuplicateWarning(null);
     createBottle.mutate(
       { ...data, user_id: user.id, active: true, proof: data.abv ? data.abv * 2 : null },
       { onSuccess: () => setShowForm(false) }
@@ -90,19 +97,38 @@ export function InventoryPage() {
 
   const handleBulkImport = async (importedBottles: { name: string; brand: string | null; category: SpiritCategory; subcategory: string | null; spirit_type: string | null; abv: number | null; price_tier: PriceTier | null; tags: string[] }[], onDone: () => void) => {
     if (!user) return;
-    await Promise.all(
-      importedBottles.map(b =>
-        bottleService.create({
-          ...b,
-          user_id: user.id,
-          active: true,
-          is_premium: b.price_tier === 'premium' || b.price_tier === 'luxury',
-          proof: b.abv ? b.abv * 2 : null,
-          notes: null,
-        })
-      )
-    );
-    queryClient.invalidateQueries({ queryKey: ['bottles', 'active'] });
+
+    // Filter out bottles that already exist in inventory (case-insensitive)
+    const existingNames = new Set((bottles ?? []).map(b => b.name.toLowerCase()));
+    const seen = new Set<string>();
+    const newBottles = importedBottles.filter(b => {
+      const key = b.name.toLowerCase();
+      if (existingNames.has(key) || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    const skipped = importedBottles.length - newBottles.length;
+
+    if (newBottles.length > 0) {
+      await Promise.all(
+        newBottles.map(b =>
+          bottleService.create({
+            ...b,
+            user_id: user.id,
+            active: true,
+            is_premium: b.price_tier === 'premium' || b.price_tier === 'luxury',
+            proof: b.abv ? b.abv * 2 : null,
+            notes: null,
+          })
+        )
+      );
+      queryClient.invalidateQueries({ queryKey: ['bottles', 'active'] });
+    }
+
+    if (skipped > 0) {
+      setDuplicateWarning(`${skipped} ${skipped === 1 ? 'bottle was' : 'bottles were'} already in your inventory and skipped.`);
+    }
     onDone();
   };
 
@@ -136,6 +162,16 @@ export function InventoryPage() {
           </p>
         </div>
       </div>
+
+      {duplicateWarning && (
+        <button
+          onClick={() => setDuplicateWarning(null)}
+          className="flex w-full items-start gap-2 rounded-card bg-warning/10 p-3 text-left"
+        >
+          <span className="text-sm text-warning">{duplicateWarning}</span>
+          <span className="shrink-0 text-xs text-text-tertiary">dismiss</span>
+        </button>
+      )}
 
       <div className="relative">
         <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary" />

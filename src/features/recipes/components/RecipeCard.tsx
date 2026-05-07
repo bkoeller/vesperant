@@ -32,6 +32,11 @@ export function RecipeCard({ recipe, canMake, missingCount }: RecipeCardProps) {
             {recipe.glassware && (
               <span className="text-xs text-text-tertiary">{recipe.glassware}</span>
             )}
+            {recipe.user_id && (
+              <span className="rounded-pill bg-accent-gold/10 px-2 py-0.5 text-xs font-medium text-accent-gold">
+                Custom
+              </span>
+            )}
           </div>
         </div>
         <div className="flex-shrink-0 pt-1">

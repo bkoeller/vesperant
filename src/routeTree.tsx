@@ -8,6 +8,7 @@ import { TonightPage } from '@/features/suggestions/components/TonightPage';
 import { InventoryPage } from '@/features/inventory/components/InventoryPage';
 import { RecipesPage } from '@/features/recipes/components/RecipesPage';
 import { RecipeDetailPage } from '@/features/recipes/components/RecipeDetailPage';
+import { RecipeFormPage } from '@/features/recipes/components/RecipeFormPage';
 import { HistoryPage } from '@/features/cocktail-log/components/HistoryPage';
 import { SettingsPage } from '@/features/settings/components/SettingsPage';
 
@@ -41,10 +42,22 @@ const recipesRoute = createRoute({
   component: RecipesPage,
 });
 
+const recipeNewRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/recipes/new',
+  component: () => <RecipeFormPage mode="new" />,
+});
+
 const recipeDetailRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/recipes/$slug',
   component: RecipeDetailPage,
+});
+
+const recipeEditRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/recipes/$slug/edit',
+  component: () => <RecipeFormPage mode="edit" />,
 });
 
 const historyRoute = createRoute({
@@ -64,7 +77,9 @@ export const routeTree = rootRoute.addChildren([
   tonightRoute,
   inventoryRoute,
   recipesRoute,
+  recipeNewRoute,
   recipeDetailRoute,
+  recipeEditRoute,
   historyRoute,
   settingsRoute,
 ]);

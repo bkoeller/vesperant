@@ -49,6 +49,7 @@ export interface Bottle {
 
 export interface Recipe {
   id: string;
+  user_id: string | null;
   name: string;
   aliases: string[];
   slug: string;

@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { useParams, Link } from '@tanstack/react-router';
-import { ArrowLeft, GlassWater, Wand2, AlertTriangle, Info, CheckCircle } from 'lucide-react';
-import { useRecipeBySlug } from '../hooks/useRecipes';
+import { useParams, Link, useNavigate } from '@tanstack/react-router';
+import { ArrowLeft, GlassWater, Wand2, AlertTriangle, Info, CheckCircle, Pencil, Trash2 } from 'lucide-react';
+import { useRecipeBySlug, useDeleteRecipe } from '../hooks/useRecipes';
 import { useAdaptRecipe } from '../hooks/useAdaptRecipe';
 import { useBottles } from '@/features/inventory/hooks/useBottles';
 import { useAuth } from '@/features/auth/hooks/useAuth';
@@ -38,12 +38,15 @@ function formatQuantity(qty: number | null, unit: string | null): string {
 
 export function RecipeDetailPage() {
   const { slug } = useParams({ from: '/recipes/$slug' });
+  const navigate = useNavigate();
   const { data: recipe, isLoading, error } = useRecipeBySlug(slug);
   const { data: bottles } = useBottles();
   const { user } = useAuth();
   const createLog = useCreateLog();
+  const deleteRecipe = useDeleteRecipe();
   const { adapted, loading: adapting, error: adaptError, adapt, reset } = useAdaptRecipe();
   const [showLogForm, setShowLogForm] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const handleLog = (data: { rating: number | null; tasting_notes: string | null; social_context: string | null }) => {
     if (!user || !recipe) return;
@@ -94,6 +97,13 @@ export function RecipeDetailPage() {
 
   const mainIngredients = recipe.recipe_ingredients.filter(i => i.role !== 'garnish');
   const garnishes = recipe.recipe_ingredients.filter(i => i.role === 'garnish');
+  const ownsRecipe = recipe.user_id != null && recipe.user_id === user?.id;
+
+  const handleDelete = () => {
+    deleteRecipe.mutate(recipe.id, {
+      onSuccess: () => navigate({ to: '/recipes' }),
+    });
+  };
 
   return (
     <div className="flex flex-col gap-6 pt-2">
@@ -108,7 +118,33 @@ export function RecipeDetailPage() {
 
       {/* Header */}
       <div>
-        <h1 className="text-4xl font-semibold tracking-tight">{recipe.name}</h1>
+        <div className="flex items-start justify-between gap-3">
+          <h1 className="text-4xl font-semibold tracking-tight">{recipe.name}</h1>
+          {ownsRecipe && (
+            <div className="flex flex-shrink-0 gap-1 pt-1">
+              <Link
+                to="/recipes/$slug/edit"
+                params={{ slug: recipe.slug }}
+                className="rounded-button p-2 text-text-tertiary no-underline transition-colors hover:bg-bg-hover hover:text-text-primary"
+                aria-label="Edit recipe"
+              >
+                <Pencil size={16} />
+              </Link>
+              <button
+                onClick={() => setConfirmDelete(true)}
+                className="rounded-button p-2 text-text-tertiary transition-colors hover:bg-bg-hover hover:text-error"
+                aria-label="Delete recipe"
+              >
+                <Trash2 size={16} />
+              </button>
+            </div>
+          )}
+        </div>
+        {ownsRecipe && (
+          <span className="mt-1 inline-block rounded-pill bg-accent-gold/10 px-2 py-0.5 text-xs font-medium text-accent-gold">
+            Custom
+          </span>
+        )}
         {recipe.aliases && recipe.aliases.length > 0 && (
           <p className="mt-1 text-sm italic text-text-tertiary">
             aka {recipe.aliases.join(', ')}
@@ -319,6 +355,33 @@ export function RecipeDetailPage() {
           onClose={() => setShowLogForm(false)}
           submitting={createLog.isPending}
         />
+      )}
+
+      {/* Delete confirmation */}
+      {confirmDelete && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm sm:items-center">
+          <div className="w-full max-w-sm rounded-t-2xl bg-bg-elevated p-6 sm:rounded-2xl">
+            <h2 className="text-lg font-semibold">Delete this recipe?</h2>
+            <p className="mt-2 text-sm text-text-secondary">
+              "{recipe.name}" and its ingredients will be removed. Logged cocktails referencing it will keep the recipe name but lose the link.
+            </p>
+            <div className="mt-5 flex gap-3">
+              <button
+                onClick={() => setConfirmDelete(false)}
+                className="flex-1 rounded-button bg-bg-surface py-2.5 text-sm font-medium text-text-secondary transition-colors hover:bg-bg-hover"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={deleteRecipe.isPending}
+                className="flex-1 rounded-button bg-error py-2.5 text-sm font-medium text-text-primary transition-colors hover:opacity-90 disabled:opacity-50"
+              >
+                {deleteRecipe.isPending ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

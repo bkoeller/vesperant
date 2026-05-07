@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
-import { Search, BookOpen, Download, Filter } from 'lucide-react';
+import { Link } from '@tanstack/react-router';
+import { Search, BookOpen, Download, Filter, Plus } from 'lucide-react';
 import { useRecipes, useMakeableRecipes, useSeedRecipes } from '../hooks/useRecipes';
 import { FILTER_TAGS } from '../recipes.types';
 import { RecipeCard } from './RecipeCard';
@@ -125,6 +126,13 @@ export function RecipesPage() {
             {recipes?.length ?? 0} cocktails
           </p>
         </div>
+        <Link
+          to="/recipes/new"
+          className="flex items-center gap-1.5 rounded-button bg-accent-gold px-3 py-2 text-xs font-medium text-bg-base no-underline transition-colors hover:bg-accent-amber"
+        >
+          <Plus size={14} />
+          New Recipe
+        </Link>
       </div>
 
       <div className="relative">

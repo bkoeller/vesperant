@@ -39,7 +39,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const admin = getAdminClient();
   const { data: userData, error: userErr } = await admin.auth.getUser(token);
   if (userErr || !userData?.user) {
-    return res.status(401).json({ error: 'Invalid session' });
+    // Diagnostic logging — visible in Vercel function logs only, never returned to client.
+    // Logs: which URL we're verifying against (project hash, not full URL), service-role key
+    // length (so we can tell anon vs service vs unset apart without exposing the key),
+    // token length, and the actual Supabase error.
+    const urlHash = SUPABASE_URL ? SUPABASE_URL.replace(/^https?:\/\//, '').slice(0, 24) : 'UNSET';
+    const keyLen = SUPABASE_SERVICE_ROLE_KEY?.length ?? 0;
+    console.error('[claude.ts] auth.getUser failed', {
+      url_prefix: urlHash,
+      service_key_len: keyLen,
+      token_len: token.length,
+      supabase_err: userErr?.message ?? null,
+      supabase_status: (userErr as { status?: number })?.status ?? null,
+      has_user: !!userData?.user,
+    });
+    return res.status(401).json({
+      error: 'Invalid session',
+      detail: userErr?.message ?? 'no user returned',
+    });
   }
   const userId = userData.user.id;
   const email = userData.user.email;

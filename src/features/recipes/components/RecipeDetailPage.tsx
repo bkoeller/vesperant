@@ -7,7 +7,6 @@ import { useBottles } from '@/features/inventory/hooks/useBottles';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useCreateLog } from '@/features/cocktail-log/hooks/useCocktailLog';
 import { LogForm } from '@/features/cocktail-log/components/LogForm';
-import { hasClaudeApiKey } from '@/lib/claude';
 import { METHOD_LABELS } from '../recipes.types';
 import type { IngredientRole } from '@/types/database.types';
 
@@ -231,7 +230,7 @@ export function RecipeDetailPage() {
       {!adapted && (
         <button
           onClick={handleAdapt}
-          disabled={adapting || !hasClaudeApiKey()}
+          disabled={adapting}
           className="flex items-center justify-center gap-2 rounded-button bg-accent-gold py-3 text-sm font-medium text-bg-base transition-colors hover:bg-accent-amber disabled:opacity-50"
         >
           {adapting ? (
@@ -242,7 +241,7 @@ export function RecipeDetailPage() {
           ) : (
             <>
               <Wand2 size={16} />
-              {hasClaudeApiKey() ? 'Adapt to My Bar' : 'Set up Claude API key in Settings'}
+              Adapt to My Bar
             </>
           )}
         </button>

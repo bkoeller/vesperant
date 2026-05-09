@@ -9,7 +9,6 @@ import { BottleCard } from './BottleCard';
 import { BottleForm } from './BottleForm';
 import { PhotoImportModal } from './PhotoImportModal';
 import { ListImportModal } from './ListImportModal';
-import { hasClaudeApiKey } from '@/lib/claude';
 
 export function InventoryPage() {
   const { user } = useAuth();
@@ -212,24 +211,20 @@ export function InventoryPage() {
         >
           <Plus size={24} className="text-bg-base" />
         </button>
-        {hasClaudeApiKey() && (
-          <>
-            <button
-              onClick={() => setShowPhotoImport(true)}
-              className="flex h-11 w-11 items-center justify-center rounded-full bg-accent-copper shadow-elevated transition-colors hover:bg-accent-amber"
-              aria-label="Import from photo"
-            >
-              <Camera size={18} className="text-bg-base" />
-            </button>
-            <button
-              onClick={() => setShowListImport(true)}
-              className="flex h-11 w-11 items-center justify-center rounded-full bg-accent-copper shadow-elevated transition-colors hover:bg-accent-amber"
-              aria-label="Import from list"
-            >
-              <FileText size={18} className="text-bg-base" />
-            </button>
-          </>
-        )}
+        <button
+          onClick={() => setShowPhotoImport(true)}
+          className="flex h-11 w-11 items-center justify-center rounded-full bg-accent-copper shadow-elevated transition-colors hover:bg-accent-amber"
+          aria-label="Import from photo"
+        >
+          <Camera size={18} className="text-bg-base" />
+        </button>
+        <button
+          onClick={() => setShowListImport(true)}
+          className="flex h-11 w-11 items-center justify-center rounded-full bg-accent-copper shadow-elevated transition-colors hover:bg-accent-amber"
+          aria-label="Import from list"
+        >
+          <FileText size={18} className="text-bg-base" />
+        </button>
       </div>
 
       {showPhotoImport && (

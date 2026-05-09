@@ -1,20 +1,4 @@
-const API_KEY_STORAGE_KEY = 'vesperant_claude_api_key';
-
-export function getClaudeApiKey(): string | null {
-  return localStorage.getItem(API_KEY_STORAGE_KEY);
-}
-
-export function setClaudeApiKey(key: string): void {
-  localStorage.setItem(API_KEY_STORAGE_KEY, key);
-}
-
-export function clearClaudeApiKey(): void {
-  localStorage.removeItem(API_KEY_STORAGE_KEY);
-}
-
-export function hasClaudeApiKey(): boolean {
-  return !!getClaudeApiKey();
-}
+import { supabase } from '@/lib/supabase';
 
 export interface AdaptedIngredient {
   ingredient_name: string;
@@ -43,17 +27,19 @@ export interface SuggestionResult {
   missing_ingredients: string[];
 }
 
-export async function callClaude(
-  systemPrompt: string,
-  userPrompt: string,
-): Promise<string> {
-  const apiKey = getClaudeApiKey();
-  if (!apiKey) throw new Error('Claude API key not configured');
+async function getAuthHeader(): Promise<string> {
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  if (!token) throw new Error('Not signed in');
+  return `Bearer ${token}`;
+}
 
+async function postClaude(body: Record<string, unknown>): Promise<string> {
+  const auth = await getAuthHeader();
   const res = await fetch('/api/claude', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ apiKey, systemPrompt, userPrompt }),
+    headers: { 'Content-Type': 'application/json', Authorization: auth },
+    body: JSON.stringify(body),
   });
 
   if (!res.ok) {
@@ -65,15 +51,16 @@ export async function callClaude(
   return data.content;
 }
 
-export async function callClaudeWithVision(
+export function callClaude(systemPrompt: string, userPrompt: string): Promise<string> {
+  return postClaude({ systemPrompt, userPrompt });
+}
+
+export function callClaudeWithVision(
   systemPrompt: string,
   imageBase64: string,
   mediaType: 'image/jpeg' | 'image/png' | 'image/webp',
   textPrompt: string,
 ): Promise<string> {
-  const apiKey = getClaudeApiKey();
-  if (!apiKey) throw new Error('Claude API key not configured');
-
   const messages = [
     {
       role: 'user',
@@ -86,18 +73,5 @@ export async function callClaudeWithVision(
       ],
     },
   ];
-
-  const res = await fetch('/api/claude', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ apiKey, systemPrompt, messages, model: 'claude-sonnet-4-6' }),
-  });
-
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`Claude API error: ${err}`);
-  }
-
-  const data = await res.json();
-  return data.content;
+  return postClaude({ systemPrompt, messages, model: 'claude-sonnet-4-6' });
 }

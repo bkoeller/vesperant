@@ -22,10 +22,18 @@ export interface Profile {
   location_lat: number | null;
   location_lon: number | null;
   location_name: string | null;
-  claude_api_key_encrypted: string | null;
+  is_admin: boolean;
   onboarding_completed: boolean;
   created_at: string;
   updated_at: string;
+}
+
+export interface AllowedEmail {
+  email: string;
+  granted_at: string;
+  granted_by: string | null;
+  notes: string | null;
+  is_active: boolean;
 }
 
 export interface Bottle {

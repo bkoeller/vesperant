@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { Wine, Key, MapPin, Sparkles, ArrowRight, Check, SkipForward } from 'lucide-react';
-import { setClaudeApiKey, hasClaudeApiKey } from '@/lib/claude';
+import { Wine, Sparkles, ArrowRight, Check, SkipForward } from 'lucide-react';
 import { useBottles } from '@/features/inventory/hooks/useBottles';
 import { useSeedInventory } from '@/features/inventory/hooks/useSeedInventory';
+import { useAuth } from '@/features/auth/hooks/useAuth';
 
 interface OnboardingFlowProps {
   onComplete: () => void;
@@ -10,11 +10,13 @@ interface OnboardingFlowProps {
 
 export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   const [step, setStep] = useState(0);
-  const [apiKey, setApiKeyInput] = useState('');
-  const [keySaved, setKeySaved] = useState(hasClaudeApiKey());
+  const { user } = useAuth();
   const { data: bottles } = useBottles();
   const seedInventory = useSeedInventory();
 
+  // The seed-data import is owner-only ("Koeller Bar"). Other users get the
+  // generic empty-bar flow and can use photo/list import after onboarding.
+  const isOwner = user?.email?.toLowerCase() === 'bkoeller@gmail.com';
   const hasBottles = (bottles?.length ?? 0) > 0;
 
   const steps = [
@@ -26,15 +28,10 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
     {
       icon: <Wine size={32} className="text-accent-copper" />,
       title: 'Set Up Your Bar',
-      subtitle: 'Import your bottle collection to get started. You can always add or edit bottles later.',
+      subtitle: 'Add a few bottles to get started. You can always add more or import from a photo later.',
     },
     {
-      icon: <Key size={32} className="text-accent-gold" />,
-      title: 'Claude API Key',
-      subtitle: 'Vesperant uses Claude for intelligent suggestions. Enter your API key to enable the bartender brain.',
-    },
-    {
-      icon: <MapPin size={32} className="text-info" />,
+      icon: <Sparkles size={32} className="text-accent-gold" />,
       title: 'You\'re All Set',
       subtitle: 'Your bar is ready. Ask Vesperant what you should make tonight.',
     },
@@ -76,7 +73,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                 <Check size={16} />
                 {bottles?.length} bottles in your bar
               </div>
-            ) : (
+            ) : isOwner ? (
               <button
                 onClick={() => seedInventory.mutate()}
                 disabled={seedInventory.isPending}
@@ -84,48 +81,13 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
               >
                 {seedInventory.isPending ? 'Importing...' : 'Import Koeller Bar'}
               </button>
+            ) : (
+              <p className="text-xs text-text-tertiary">
+                Tap "Skip" for now — you can add bottles from the Inventory tab using the camera or list import.
+              </p>
             )}
             {seedInventory.isError && (
               <p className="text-xs text-error">Import failed. Try again.</p>
-            )}
-          </div>
-        )}
-
-        {step === 2 && (
-          <div className="flex w-full flex-col gap-3">
-            {keySaved ? (
-              <div className="flex items-center justify-center gap-2 rounded-button bg-success/10 py-3 text-sm text-success">
-                <Check size={16} />
-                API key configured
-              </div>
-            ) : (
-              <>
-                <input
-                  type="password"
-                  value={apiKey}
-                  onChange={e => setApiKeyInput(e.target.value)}
-                  placeholder="sk-ant-..."
-                  className="rounded-button bg-bg-surface px-3 py-3 font-mono text-sm text-text-primary outline-none ring-1 ring-bg-hover placeholder:text-text-tertiary focus:ring-accent-gold-dim"
-                />
-                <button
-                  onClick={() => {
-                    if (apiKey.trim()) {
-                      setClaudeApiKey(apiKey.trim());
-                      setKeySaved(true);
-                    }
-                  }}
-                  disabled={!apiKey.trim()}
-                  className="rounded-button bg-accent-gold py-3 text-sm font-medium text-bg-base transition-colors hover:bg-accent-amber disabled:opacity-50"
-                >
-                  Save Key
-                </button>
-                <p className="text-xs text-text-tertiary">
-                  Get your key from{' '}
-                  <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener noreferrer" className="text-accent-gold no-underline hover:text-accent-amber">
-                    console.anthropic.com
-                  </a>
-                </p>
-              </>
             )}
           </div>
         )}
@@ -134,7 +96,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
         <div className="flex w-full gap-3">
           {step < steps.length - 1 ? (
             <>
-              {step > 0 && step < 3 && (
+              {step > 0 && step < steps.length - 1 && (
                 <button
                   onClick={() => setStep(s => s + 1)}
                   className="flex-1 rounded-button bg-bg-surface py-3 text-sm text-text-secondary transition-colors hover:bg-bg-hover"

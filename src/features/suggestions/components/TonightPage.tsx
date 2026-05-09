@@ -5,7 +5,6 @@ import { SuggestionCard } from './SuggestionCard';
 import { LogForm } from '@/features/cocktail-log/components/LogForm';
 import { useCreateLog } from '@/features/cocktail-log/hooks/useCocktailLog';
 import { useAuth } from '@/features/auth/hooks/useAuth';
-import { hasClaudeApiKey } from '@/lib/claude';
 import type { SuggestionResult } from '@/lib/claude';
 
 export function TonightPage() {
@@ -52,8 +51,6 @@ export function TonightPage() {
       onSuccess: () => setLoggingSuggestion(null),
     });
   };
-
-  const apiKeyReady = hasClaudeApiKey();
 
   // Initial state — no suggestions yet
   if (!suggestions && !loading) {
@@ -115,13 +112,10 @@ export function TonightPage() {
 
           <button
             onClick={handleSuggest}
-            disabled={!apiKeyReady || loading}
+            disabled={loading}
             className="w-full rounded-button bg-accent-gold py-3 text-sm font-medium text-bg-base transition-colors hover:bg-accent-amber disabled:opacity-50"
           >
-            {!apiKeyReady
-              ? 'Set up Claude API key in Settings'
-              : 'Suggest something'
-            }
+            Suggest something
           </button>
         </div>
 

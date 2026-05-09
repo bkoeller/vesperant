@@ -17,6 +17,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
+    # CI-only stub values. src/lib/supabase.ts throws at import time without
+    # these. Tests mock the Supabase client, build doesn't make network calls,
+    # so stubs never reach Supabase.
+    env:
+      VITE_SUPABASE_URL: https://ci-stub.supabase.co
+      VITE_SUPABASE_ANON_KEY: ci-stub-anon-key
+
     steps:
       - uses: actions/checkout@v4
 
@@ -36,8 +43,3 @@ jobs:
 
       - name: Build (smoke)
         run: npm run build
-        env:
-          # The client throws at import time without these. CI-only stub values —
-          # build doesn't actually contact Supabase.
-          VITE_SUPABASE_URL: https://ci-stub.supabase.co
-          VITE_SUPABASE_ANON_KEY: ci-stub-anon-key

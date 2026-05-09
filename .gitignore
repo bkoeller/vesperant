@@ -27,3 +27,11 @@ supabase/.temp
 *.sw?
 
 .vercel
+
+# Playwright
+test-results/
+playwright-report/
+playwright/.cache/
+
+# Vitest
+coverage/

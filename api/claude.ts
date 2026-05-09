@@ -1,7 +1,11 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 
-const SUPABASE_URL = process.env.SUPABASE_URL;
+// Read VITE_SUPABASE_URL (the client-side var) so server and client always
+// point at the same Supabase project. The VITE_ prefix is just a Vite
+// build-time convention; Vercel exposes the env var to serverless functions
+// at runtime too. Falls back to SUPABASE_URL if someone set that instead.
+const SUPABASE_URL = process.env.VITE_SUPABASE_URL ?? process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 

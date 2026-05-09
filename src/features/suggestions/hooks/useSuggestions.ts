@@ -93,18 +93,32 @@ function gatherContextSignals(
   };
 }
 
-function buildSuggestionUserPrompt(
+// Exported for unit testing. The shape of the inventory and the makeability
+// rules in this prompt are load-bearing for the bug fixed in migration 005:
+// Claude must see specific identities (subcategory, spirit_type) and be told
+// not to substitute identity-sensitive bottles, or it will recommend things
+// the user can't actually make.
+export function buildSuggestionUserPrompt(
   context: ContextSignals,
   bottles: Bottle[],
   recentHistory?: string[],
   refinement?: string,
   previousSuggestions?: SuggestionResult[],
 ): string {
-  const inventoryByCategory: Record<string, { name: string; abv: number | null; price_tier: string | null; tags: string[] }[]> = {};
+  const inventoryByCategory: Record<string, {
+    name: string;
+    subcategory: string | null;
+    spirit_type: string | null;
+    abv: number | null;
+    price_tier: string | null;
+    tags: string[];
+  }[]> = {};
   for (const b of bottles) {
     if (!inventoryByCategory[b.category]) inventoryByCategory[b.category] = [];
     inventoryByCategory[b.category].push({
       name: b.name,
+      subcategory: b.subcategory,
+      spirit_type: b.spirit_type,
       abv: b.abv,
       price_tier: b.price_tier,
       tags: b.tags,
@@ -173,6 +187,12 @@ Rules:
 - All suggestions must be makeable with the user's inventory (0-1 missing ingredients max)
 - Respect bottle value: use budget/standard bottles in mixed drinks, save premium for spirit-forward
 - Adapt each recipe to specific bottles from the inventory
+
+CRITICAL — DO NOT SUBSTITUTE these identity-sensitive ingredients across categories:
+- Liqueurs are not interchangeable. Drambuie, Cointreau, Bénédictine, Chartreuse, Maraschino, Campari, Aperol, Cynar, etc. each have a unique character. Only suggest a recipe whose specific liqueur you can identify in the inventory by name or subcategory.
+- Sweet vermouth and dry vermouth are NOT interchangeable. Check each bottle's subcategory.
+- "Mixer" / "garnish" / "syrup" / "other" categories represent fridge/pantry items (citrus juice, simple syrup, mint, soda, egg white) — assume the user has these unless the recipe calls for something exotic. Inventory only lists bottles, not produce.
+- For other spirits (whisky, gin, vodka, rum, tequila, mezcal, brandy/cognac), within-category substitution is acceptable but note it (e.g., "Scotch instead of bourbon — different drink, more like a Rob Roy").
 `;
   }
 

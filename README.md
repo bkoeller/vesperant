@@ -84,6 +84,13 @@ On first launch, the onboarding flow will guide you through:
 2. Setting your Claude API key
 3. Getting your first cocktail suggestion
 
+## Documentation
+
+- [`docs/PRD.md`](./docs/PRD.md) — product requirements, feature definitions, success criteria
+- [`docs/TECHNICAL_ARCHITECTURE.md`](./docs/TECHNICAL_ARCHITECTURE.md) — stack, schema, API design
+- [`docs/MULTI_USER_ROLLOUT.md`](./docs/MULTI_USER_ROLLOUT.md) — how multi-user (server-side Claude key + email allowlist) was rolled out and how to verify it
+- [`docs/TESTING.md`](./docs/TESTING.md) — Vitest + Playwright + CI pyramid; how to add tests
+
 ## Design
 
 Dark, minimal, typographically serious. Cormorant Garamond for headings, Inter for body text. Warm amber/gold accents on near-black backgrounds. Think speakeasy menu, not party app.

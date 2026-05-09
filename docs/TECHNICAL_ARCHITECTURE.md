@@ -3,6 +3,8 @@
 **Version:** 1.0 — MVP Architecture
 **Date:** 2026-03-14
 
+> ⚠️ **Historical document.** This is the v1.0 single-user / BYOK design. Several sections are superseded by the v2.0 multi-user model — most importantly **§6.3 (per-user encrypted Claude API keys)**, the `claude_api_key_encrypted` profile column, and the `ENCRYPTION_SECRET` env var are no longer in use. The current model has one server-side `ANTHROPIC_API_KEY` env var, an `allowed_emails` allowlist, and an `is_admin` profile flag. See `docs/PRD.md` v2.0 and `docs/MULTI_USER_ROLLOUT.md` for the up-to-date design. Everything else (data model, RLS, suggestion flow, PWA setup, theme system, build order) still applies.
+
 ---
 
 ## 1. Project Structure

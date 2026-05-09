@@ -12,7 +12,12 @@ export interface BottleSeed {
   price_tier: PriceTier;
 }
 
-export const KOELLER_BAR_INVENTORY: BottleSeed[] = [
+// A starter bar based on a real serious-whisky-enthusiast collection
+// (~70 bottles, heavy on Scotch, with a working set of vermouths, amari,
+// liqueurs, and citrus complement). Importable as a one-tap onboarding
+// shortcut. Forks of this repo are welcome to replace it with their own
+// reference bar — just preserve the BottleSeed shape.
+export const SAMPLE_BAR_INVENTORY: BottleSeed[] = [
   // SCOTCH WHISKY — SINGLE MALT
   { name: 'Aberlour 12 Year Old Double Cask Matured', brand: 'Aberlour', category: 'whisky', subcategory: 'Scotch Whisky', spirit_type: 'Speyside Single Malt', tags: ['Speyside', 'sherry cask'], abv: 40, is_premium: false, price_tier: 'standard' },
   { name: 'anCnoc 12 Year Old', brand: 'anCnoc', category: 'whisky', subcategory: 'Scotch Whisky', spirit_type: 'Highland Single Malt', tags: ['Highland'], abv: 40, is_premium: false, price_tier: 'standard' },

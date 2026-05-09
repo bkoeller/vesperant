@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { Wine, Sparkles, ArrowRight, Check, SkipForward } from 'lucide-react';
 import { useBottles } from '@/features/inventory/hooks/useBottles';
 import { useSeedInventory } from '@/features/inventory/hooks/useSeedInventory';
-import { useAuth } from '@/features/auth/hooks/useAuth';
 
 interface OnboardingFlowProps {
   onComplete: () => void;
@@ -10,13 +9,9 @@ interface OnboardingFlowProps {
 
 export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   const [step, setStep] = useState(0);
-  const { user } = useAuth();
   const { data: bottles } = useBottles();
   const seedInventory = useSeedInventory();
 
-  // The seed-data import is owner-only ("Koeller Bar"). Other users get the
-  // generic empty-bar flow and can use photo/list import after onboarding.
-  const isOwner = user?.email?.toLowerCase() === 'bkoeller@gmail.com';
   const hasBottles = (bottles?.length ?? 0) > 0;
 
   const steps = [
@@ -73,18 +68,19 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                 <Check size={16} />
                 {bottles?.length} bottles in your bar
               </div>
-            ) : isOwner ? (
-              <button
-                onClick={() => seedInventory.mutate()}
-                disabled={seedInventory.isPending}
-                className="rounded-button bg-accent-gold py-3 text-sm font-medium text-bg-base transition-colors hover:bg-accent-amber disabled:opacity-50"
-              >
-                {seedInventory.isPending ? 'Importing...' : 'Import Koeller Bar'}
-              </button>
             ) : (
-              <p className="text-xs text-text-tertiary">
-                Tap "Skip" for now — you can add bottles from the Inventory tab using the camera or list import.
-              </p>
+              <>
+                <button
+                  onClick={() => seedInventory.mutate()}
+                  disabled={seedInventory.isPending}
+                  className="rounded-button bg-accent-gold py-3 text-sm font-medium text-bg-base transition-colors hover:bg-accent-amber disabled:opacity-50"
+                >
+                  {seedInventory.isPending ? 'Importing...' : 'Import sample bar'}
+                </button>
+                <p className="text-xs text-text-tertiary">
+                  ~70 bottles to get you started. Edit or remove anything you don't actually own from the Inventory tab.
+                </p>
+              </>
             )}
             {seedInventory.isError && (
               <p className="text-xs text-error">Import failed. Try again.</p>

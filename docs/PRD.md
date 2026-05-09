@@ -128,7 +128,7 @@
 - **Optional feedback form** (all fields optional):
   - Rating: 1-5 stars
   - Tasting notes: free text
-  - Social context: free text (e.g., "Dinner with the Rabasas")
+  - Social context: free text (e.g., "Dinner with the Smiths")
 - Logging should be as frictionless as possible — one tap to log "I made this," then optionally expand to add notes
 - Timestamp automatically captured
 
@@ -163,7 +163,7 @@
 - Basic search/filter within the timeline (by cocktail name, by rating)
 
 **Deferred to post-MVP:**
-- Multi-dimensional querying ("What do I make when the Rabasas visit?", "Show me everything with Campari", "What did I drink last NYE?")
+- Multi-dimensional querying ("What do I make when the Smiths visit?", "Show me everything with Campari", "What did I drink last NYE?")
 - Analytics/stats (most-made cocktail, average rating trends, spirit usage distribution)
 
 ---
@@ -181,7 +181,7 @@ Listed roughly in priority order based on interview:
 7. ~~**Automated test suite**~~ *(in progress)* — Vitest covers pure helpers, the auth gate, and key React components; Playwright covers smoke E2E. CI runs both on every push to main. Authenticated E2E flows still WIP.
 8. **Public the GitHub repo** — sanitize secrets from git history, add LICENSE, polish README, flip visibility.
 9. **Smart inventory deduplication** — fuzzy matching for bottle names to catch variants like "Benedictine DOM" vs "DOM Benedictine", word-order permutations, abbreviations, and common misspellings. Possibly LLM-assisted matching at import time.
-10. **Multi-dimensional history queries** — natural language queries against cocktail log ("What do I usually make for the Rabasas?")
+10. **Multi-dimensional history queries** — natural language queries against cocktail log ("What do I usually make for the Smiths?")
 11. **Web search for recipes** — LLM searches the web for cultural/historical cocktail info, stores results as new recipes
 12. **Ratio customization UI** — dedicated interface for tweaking and saving personal recipe ratios
 13. **Offline caching** — browse inventory, saved recipes, and history without connectivity (no LLM calls)
@@ -312,7 +312,7 @@ All per-user tables (`bottles`, `cocktail_logs`, `suggestion_sessions`, user-cre
 ## 10. First-Run Experience
 
 1. Welcome screen — brief value proposition, "Set up your bar" CTA
-2. **Inventory setup** — guided flow to add bottles. The owner has a one-tap "Import Koeller Bar" seed; other users see a hint pointing at the photo/list import on the Inventory tab. Can skip and add bottles later.
+2. **Inventory setup** — guided flow to add bottles. One-tap "Import sample bar" populates ~70 bottles you can edit; otherwise skip and add via photo/list import on the Inventory tab.
 3. Straight to the main screen — "What should I make tonight?"
 
 The Claude API key step from v1.0 is gone — the key lives server-side and isn't a per-user concern.

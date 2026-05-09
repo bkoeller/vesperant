@@ -1,5 +1,5 @@
 /**
- * Seed script to populate the Koeller Bar inventory.
+ * Seed script to populate a starter bar inventory for a user.
  *
  * Usage: SUPABASE_URL=... SUPABASE_SERVICE_KEY=... USER_ID=... npx tsx scripts/seed-inventory.ts
  *

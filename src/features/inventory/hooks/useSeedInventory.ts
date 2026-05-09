@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
-import { KOELLER_BAR_INVENTORY } from '../seed-data';
+import { SAMPLE_BAR_INVENTORY } from '../seed-data';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 
 export function useSeedInventory() {
@@ -11,7 +11,7 @@ export function useSeedInventory() {
     mutationFn: async () => {
       if (!user) throw new Error('Not authenticated');
 
-      const rows = KOELLER_BAR_INVENTORY.map(b => ({
+      const rows = SAMPLE_BAR_INVENTORY.map(b => ({
         user_id: user.id,
         name: b.name,
         brand: b.brand,

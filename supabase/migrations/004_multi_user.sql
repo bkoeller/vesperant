@@ -147,14 +147,21 @@ CREATE POLICY profiles_delete_own ON profiles
   FOR DELETE USING (auth.uid() = id);
 
 -- ============================================
--- SEED THE OWNER
--- bkoeller@gmail.com is the initial admin and allowlisted user.
--- The is_admin flag is applied to any existing profile with that email.
+-- BOOTSTRAP: SEED YOUR OWNER EMAIL
 -- ============================================
-INSERT INTO allowed_emails (email, notes)
-VALUES ('bkoeller@gmail.com', 'Owner')
-ON CONFLICT (email) DO NOTHING;
-
-UPDATE profiles
-SET is_admin = TRUE
-WHERE id IN (SELECT id FROM auth.users WHERE lower(email) = 'bkoeller@gmail.com');
+-- The signup trigger above blocks every Google sign-in until the email is in
+-- allowed_emails. To bootstrap your deployment, after applying this migration
+-- run something like the SQL below in the Supabase SQL editor with your own
+-- email substituted in. This is intentionally not part of the migration so
+-- forks of this repo don't inherit anyone else's owner identity.
+--
+--   INSERT INTO allowed_emails (email, notes)
+--   VALUES ('YOU@example.com', 'Owner')
+--   ON CONFLICT (email) DO NOTHING;
+--
+--   -- Sign in with that account once via the app to create your profile,
+--   -- then promote yourself to admin:
+--   UPDATE profiles
+--   SET is_admin = TRUE
+--   WHERE id IN (SELECT id FROM auth.users WHERE lower(email) = 'you@example.com');
+-- ============================================

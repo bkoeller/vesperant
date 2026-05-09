@@ -155,7 +155,7 @@ export function InventoryPage() {
             className="mt-2 flex items-center gap-2 rounded-button bg-accent-gold px-5 py-2.5 text-sm font-medium text-bg-base transition-colors hover:bg-accent-amber disabled:opacity-50"
           >
             <Upload size={16} />
-            {seedInventory.isPending ? 'Importing...' : 'Import Koeller Bar'}
+            {seedInventory.isPending ? 'Importing...' : 'Import sample bar'}
           </button>
           {seedInventory.isError && (
             <p className="text-xs text-error">Import failed. Try again.</p>

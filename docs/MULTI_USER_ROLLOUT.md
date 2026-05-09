@@ -16,9 +16,30 @@ How to flip Vesperant from single-user (BYOK) to multi-user (server-side key + e
 
 Run `supabase/migrations/004_multi_user.sql` in the Supabase SQL editor.
 
-It adds: `is_admin` flag, `allowed_emails` table, `claude_usage` table, RLS, a stricter signup trigger, and seeds `bkoeller@gmail.com` as the first allowed user + admin.
+It adds: `is_admin` flag, `allowed_emails` table, `claude_usage` table, RLS, and a stricter signup trigger that blocks any sign-in whose email isn't on the allowlist.
 
-> **If your existing profile predates this migration**, the seed `UPDATE` at the bottom flips your `is_admin` to true. Verify with `select email, is_admin from profiles join auth.users using (id) where email = 'bkoeller@gmail.com';`.
+> **The migration intentionally seeds no owner**, so a fork of this repo doesn't inherit anyone else's admin identity. You'll bootstrap your own account in step 1.5.
+
+### 1.5 · Bootstrap your owner account
+
+Right after the migration, `allowed_emails` is empty — which means *nobody* can sign in (the trigger rejects every email). Two SQL statements unblock you, run in the Supabase SQL editor with your own Gmail substituted in:
+
+```sql
+-- Allow your email to sign in
+INSERT INTO allowed_emails (email, notes)
+VALUES ('you@example.com', 'Owner')
+ON CONFLICT (email) DO NOTHING;
+```
+
+Now sign in with that account once via the deployed app — that creates your `profiles` row. Then promote yourself to admin:
+
+```sql
+UPDATE profiles
+SET is_admin = TRUE
+WHERE id IN (SELECT id FROM auth.users WHERE lower(email) = 'you@example.com');
+```
+
+After that you'll see the **Allowed Users** panel in Settings and can add others through the UI without going back to SQL.
 
 ### 2 · Set Vercel environment variables
 
@@ -48,7 +69,7 @@ Vercel auto-deploys from main.
 
 ### 4 · Smoke test (your account)
 
-1. Open the deployed app, sign in with bkoeller@gmail.com — should land on Tonight as before.
+1. Open the deployed app, sign in with the owner Gmail you bootstrapped in step 1.5 — should land on Tonight.
 2. Tap a suggestion → confirm Claude responds (uses server-side key, no localStorage interaction).
 3. Open Settings → confirm "Allowed Users" panel appears (admin-only).
 4. Open DevTools → Application → Local Storage → confirm no `vesperant_claude_api_key` is being written.
@@ -79,6 +100,6 @@ Default cap: 100 requests/user/day. With Sonnet 4.6 averaging ~$0.01–0.03 per 
 
 ## Known follow-ups
 
-- **Onboarding for non-owners** says "Tap Skip" on the bar setup — could replace with a friendlier "open photo import" CTA.
 - **Usage visibility for users**: the `claude_usage` table has an RLS read policy, so a "my usage today" widget is a small follow-up if rate-limit confusion comes up.
 - **Display name**: profiles default to email; could ask for a friendly name during onboarding.
+- **Email invitations**: today an admin adds an email and the user just has to know they've been added. A real invitation email would close the loop.

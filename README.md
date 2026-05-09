@@ -6,89 +6,123 @@ Vesperant combines structured inventory management, a canonical cocktail recipe 
 
 ## Features
 
-- **Bar Inventory** — Catalog your bottles with category, ABV, price tier, and tags
-- **201 Canonical Recipes** — Searchable cocktail database with "Can I make this?" filtering
-- **Adapt to My Bar** — Claude adapts any recipe to your specific bottles with value and proof awareness
-- **Tonight Suggestions** — Three contextual suggestions (safe, adventurous, cultural) based on weather, date, holidays, and mood
-- **Progressive Refinement** — Steer suggestions naturally ("something tropical", "more bourbon")
-- **Cocktail Journal** — Log what you make with optional ratings, tasting notes, and social context
-- **History Timeline** — Searchable, filterable record of everything you've poured
+- **Bar Inventory** — Catalog your bottles with category, ABV, price tier, and tags. Photo-import from a shelf, paste-import from a list, or add manually.
+- **200+ Canonical Recipes** — Searchable cocktail database with a "Can I make this?" filter that respects identity-sensitive ingredients (Drambuie ≠ Cointreau, Sweet ≠ Dry vermouth).
+- **Adapt to My Bar** — Claude adapts any recipe to your specific bottles with value and proof awareness.
+- **Tonight Suggestions** — Three contextual archetypes (safe, adventurous, cultural) based on weather, date, holidays, and mood. With progressive refinement ("something lighter", "more bourbon").
+- **Cocktail Journal** — Log what you make with optional ratings, tasting notes, and social context.
+- **Multi-user with shared Claude key** — One owner deploys, grants access to a curated allowlist of Gmail accounts, and pays the bill. Each user has their own isolated bar inventory, recipes, and history (Postgres RLS-enforced).
 
 ## Tech Stack
 
-- **Frontend**: React 19, TypeScript, Tailwind CSS v4, TanStack Router/Query
-- **Backend**: Supabase (PostgreSQL + Auth + RLS)
-- **AI**: Claude API (BYOK — bring your own key)
+- **Frontend**: React 19, TypeScript, Tailwind CSS v4, TanStack Router + Query, Radix primitives
+- **Backend**: Supabase (PostgreSQL + Auth + Row-Level Security)
+- **AI**: Claude API via a Vercel serverless proxy (server-side key, never exposed to the client)
 - **PWA**: Installable on any device via vite-plugin-pwa
-- **Hosting**: Vercel (or any static host with serverless functions)
+- **Hosting**: Vercel
+- **Tests**: Vitest (unit + auth-gate) and Playwright (smoke E2E), wired to GitHub Actions CI
 
 ## Self-Hosting
 
-Vesperant is designed to be self-hosted. Each user deploys their own instance with their own Claude API key.
+You run one deployment. Anyone whose Gmail you add to the in-app allowlist can use it. Your Claude API key lives server-side as a Vercel env var — users never see it.
 
 ### Prerequisites
 
 - Node.js 20+
 - A [Supabase](https://supabase.com) project (free tier works)
-- A [Claude API key](https://console.anthropic.com/settings/keys) ($5 in credits lasts months)
+- A [Claude API key](https://console.anthropic.com/settings/keys) (a few dollars covers casual use for months)
 - A [Vercel](https://vercel.com) account (free tier works)
 
 ### Setup
 
 1. **Clone the repo**
    ```bash
-   git clone https://github.com/YOUR_USERNAME/vesperant.git
+   git clone https://github.com/bkoeller/vesperant.git
    cd vesperant
    npm install
    ```
 
-2. **Create a Supabase project**
-   - Go to [supabase.com/dashboard](https://supabase.com/dashboard) and create a new project
-   - Run `supabase/migrations/001_initial_schema.sql` in the SQL Editor
-   - Add these RLS policies for recipe seeding:
-     ```sql
-     CREATE POLICY recipes_insert ON recipes FOR INSERT TO authenticated WITH CHECK (TRUE);
-     CREATE POLICY recipe_ingredients_insert ON recipe_ingredients FOR INSERT TO authenticated WITH CHECK (TRUE);
-     CREATE POLICY recipe_ingredients_delete ON recipe_ingredients FOR DELETE TO authenticated USING (TRUE);
-     ```
-   - Enable Google OAuth under Authentication > Providers
+2. **Create a Supabase project** at [supabase.com/dashboard](https://supabase.com/dashboard).
 
-3. **Configure Google OAuth**
+3. **Apply the migrations** in order via the SQL Editor:
+   - `supabase/migrations/001_initial_schema.sql`
+   - `supabase/migrations/002_deduplicate_bottles.sql`
+   - `supabase/migrations/003_user_recipes.sql`
+   - `supabase/migrations/004_multi_user.sql`
+   - `supabase/migrations/005_strict_makeable.sql`
+
+   Plus these one-shot policies for recipe seeding (the canonical-recipe import script needs them):
+   ```sql
+   CREATE POLICY recipes_insert ON recipes FOR INSERT TO authenticated WITH CHECK (TRUE);
+   CREATE POLICY recipe_ingredients_insert ON recipe_ingredients FOR INSERT TO authenticated WITH CHECK (TRUE);
+   CREATE POLICY recipe_ingredients_delete ON recipe_ingredients FOR DELETE TO authenticated USING (TRUE);
+   ```
+
+4. **Configure Google OAuth**
+   - Enable the Google provider under Supabase → Authentication → Providers
    - Create OAuth credentials at [Google Cloud Console](https://console.cloud.google.com)
-   - Set redirect URI to `https://YOUR-PROJECT.supabase.co/auth/v1/callback`
-   - Add Client ID and Secret to Supabase Google provider settings
+   - Set the redirect URI to `https://YOUR-PROJECT.supabase.co/auth/v1/callback`
+   - Paste the Client ID + Secret into Supabase
 
-4. **Set up environment**
+5. **Bootstrap your owner account.** The signup trigger blocks every Google sign-in until the email is on the allowlist. With your own Gmail substituted in, run in the SQL Editor:
+   ```sql
+   INSERT INTO allowed_emails (email, notes)
+   VALUES ('you@example.com', 'Owner')
+   ON CONFLICT (email) DO NOTHING;
+   ```
+   Sign in once via the deployed app to create your `profiles` row, then promote yourself:
+   ```sql
+   UPDATE profiles
+   SET is_admin = TRUE
+   WHERE id IN (SELECT id FROM auth.users WHERE lower(email) = 'you@example.com');
+   ```
+   See [`docs/MULTI_USER_ROLLOUT.md`](./docs/MULTI_USER_ROLLOUT.md) for the full bootstrap walkthrough.
+
+6. **Configure environment variables**
    ```bash
    cp .env.example .env.local
    ```
-   Fill in your Supabase URL and anon key.
+   Fill in `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` for local dev.
 
-5. **Run locally**
+7. **Run locally**
    ```bash
    npm run dev
    ```
 
-6. **Deploy to Vercel**
+8. **Deploy to Vercel**
    ```bash
    npx vercel
    ```
-   Set environment variables in Vercel dashboard:
-   - `VITE_SUPABASE_URL`
-   - `VITE_SUPABASE_ANON_KEY`
+   Set the production environment variables in the Vercel dashboard:
+   - `VITE_SUPABASE_URL` — Supabase project URL (also used at runtime by the serverless function)
+   - `VITE_SUPABASE_ANON_KEY` — Supabase anon key
+   - `ANTHROPIC_API_KEY` — your Claude API key (used server-side only)
+   - `SUPABASE_SERVICE_ROLE_KEY` — the long JWT from Supabase → Settings → API Keys → **Legacy API Keys** → `service_role`
+   - `CLAUDE_DAILY_LIMIT` *(optional)* — per-user daily Claude request cap, defaults to 100
 
-### First Run
+### Adding more users
 
-On first launch, the onboarding flow will guide you through:
-1. Importing your bar inventory
-2. Setting your Claude API key
-3. Getting your first cocktail suggestion
+Once you're admin, the **Settings → Allowed Users** panel in the app lets you grant access by typing a Gmail address. The added user signs in with Google, gets a clean onboarding flow, and starts with an empty bar. Their data is isolated from yours by Row-Level Security.
+
+### First-run onboarding
+
+When you (or a granted user) sign in for the first time, you'll see a three-step onboarding: welcome → bar setup (one-tap import of a sample bar with ~70 bottles you can edit, or skip and add via photo/list import) → straight to "What should I make tonight?".
+
+## Tests
+
+```bash
+npm test               # Vitest unit + integration tests
+npm run test:e2e       # Playwright smoke E2E
+npm run test:coverage  # Coverage report
+```
+
+CI runs both on every push to `main` and every PR. See [`docs/TESTING.md`](./docs/TESTING.md) for the structure and how to add tests.
 
 ## Documentation
 
 - [`docs/PRD.md`](./docs/PRD.md) — product requirements, feature definitions, success criteria
-- [`docs/TECHNICAL_ARCHITECTURE.md`](./docs/TECHNICAL_ARCHITECTURE.md) — stack, schema, API design
-- [`docs/MULTI_USER_ROLLOUT.md`](./docs/MULTI_USER_ROLLOUT.md) — how multi-user (server-side Claude key + email allowlist) was rolled out and how to verify it
+- [`docs/TECHNICAL_ARCHITECTURE.md`](./docs/TECHNICAL_ARCHITECTURE.md) — stack, schema, API design (note: §6.3 BYOK is superseded by the multi-user model)
+- [`docs/MULTI_USER_ROLLOUT.md`](./docs/MULTI_USER_ROLLOUT.md) — server-side Claude key + email allowlist rollout and verification
 - [`docs/TESTING.md`](./docs/TESTING.md) — Vitest + Playwright + CI pyramid; how to add tests
 
 ## Design
@@ -101,4 +135,4 @@ From Latin *vespera* (evening) — the hour when drinks are poured.
 
 ## License
 
-MIT
+[MIT](./LICENSE).

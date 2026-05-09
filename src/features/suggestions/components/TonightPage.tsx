@@ -104,7 +104,7 @@ export function TonightPage() {
                 type="text"
                 value={guests}
                 onChange={e => setGuests(e.target.value)}
-                placeholder="Guests — the Rabasas, just me..."
+                placeholder="Guests — partner, friends, just me..."
                 className="rounded-button bg-bg-surface px-3 py-2.5 text-sm text-text-primary outline-none ring-1 ring-bg-hover placeholder:text-text-tertiary focus:ring-accent-gold-dim"
               />
             </div>

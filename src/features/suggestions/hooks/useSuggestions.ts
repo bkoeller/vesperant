@@ -12,12 +12,19 @@ import { extractCompleteSuggestionObjects } from './partial-suggestions';
  * Stream a Claude suggestion response, parsing each complete suggestion
  * object as it lands and pushing it through `onPartial` so the UI can render
  * cards progressively. Returns the final array (also passed via onPartial).
+ *
+ * Drops any suggestion whose recipe_name matches an entry in recentHistory
+ * (case-insensitive, trimmed) or whose reasoning opens with a self-correction
+ * phrase. Both signals indicate Claude got confused mid-generation and the
+ * card's name/reasoning will disagree.
  */
 async function streamSuggestions(
   systemPrompt: string,
   userPrompt: string,
+  recentHistory: string[],
   onPartial: (suggestions: SuggestionResult[]) => void,
 ): Promise<SuggestionResult[]> {
+  const historySet = new Set(recentHistory.map(n => n.trim().toLowerCase()));
   let lastCount = 0;
   let latest: SuggestionResult[] = [];
 
@@ -25,17 +32,23 @@ async function streamSuggestions(
     const raw = extractCompleteSuggestionObjects(accumulated);
     if (raw.length > lastCount) {
       lastCount = raw.length;
-      // Filter out cards where Claude self-corrected mid-generation — the
-      // recipe_name and reasoning will disagree and the card is misleading.
       latest = raw
         .map(normalizeSuggestion)
-        .filter(s => !isSelfCorrectedSuggestion(s));
+        .filter(s => {
+          // Hard exclusion: name appears in recent history. Bulletproof against
+          // any mid-stream self-correction since Claude can't change the name
+          // once emitted.
+          if (historySet.has(s.recipe_name.trim().toLowerCase())) return false;
+          // Backup: reasoning leaks self-correction language (catches cases
+          // where Claude invented a name not on the history list but still
+          // got confused).
+          if (isSelfCorrectedSuggestion(s)) return false;
+          return true;
+        });
       onPartial(latest);
     }
   });
 
-  // If the final pass found more (rare — usually streaming caught everything),
-  // emit one more update.
   return latest;
 }
 
@@ -280,7 +293,7 @@ export function useSuggestions(userId?: string) {
 
       const start = performance.now();
       let firstCardAt: number | null = null;
-      const parsed = await streamSuggestions(systemPrompt, userPrompt, (partial) => {
+      const parsed = await streamSuggestions(systemPrompt, userPrompt, recentHistory, (partial) => {
         if (firstCardAt === null && partial.length > 0) {
           firstCardAt = performance.now() - start;
           setResponseTimeMs(Math.round(firstCardAt));
@@ -329,7 +342,7 @@ export function useSuggestions(userId?: string) {
 
       const start = performance.now();
       let firstCardAt: number | null = null;
-      const parsed = await streamSuggestions(systemPrompt, userPrompt, (partial) => {
+      const parsed = await streamSuggestions(systemPrompt, userPrompt, recentHistory, (partial) => {
         if (firstCardAt === null && partial.length > 0) {
           firstCardAt = performance.now() - start;
           setResponseTimeMs(Math.round(firstCardAt));

@@ -25,7 +25,11 @@ async function streamSuggestions(
     const raw = extractCompleteSuggestionObjects(accumulated);
     if (raw.length > lastCount) {
       lastCount = raw.length;
-      latest = raw.map(normalizeSuggestion);
+      // Filter out cards where Claude self-corrected mid-generation — the
+      // recipe_name and reasoning will disagree and the card is misleading.
+      latest = raw
+        .map(normalizeSuggestion)
+        .filter(s => !isSelfCorrectedSuggestion(s));
       onPartial(latest);
     }
   });
@@ -44,6 +48,29 @@ function normalizeIngredient(ing: any): { ingredient_name: string; bottle_from_i
     unit: ing.unit ?? '',
     notes: ing.notes ?? null,
   };
+}
+
+// Patterns that indicate Claude self-corrected mid-generation. When the
+// reasoning field opens with one of these, the recipe_name almost always
+// disagrees with what the reasoning actually describes — Claude wrote a name,
+// realized it was wrong, and pivoted in the description. The card is unsafe
+// to render. See prompts.ts "Response Discipline" for the upstream prevention.
+const SELF_CORRECTION_PATTERNS = [
+  /^\s*wait[\s,—–-]/i,
+  /^\s*actually[\s,—–-]/i,
+  /^\s*hmm[\s,—–-]/i,
+  /^\s*on second thought/i,
+  /^\s*let me reconsider/i,
+  /^\s*replacing\b/i,
+  /^\s*switching to\b/i,
+  /^\s*apologies\b/i,
+  /\bthis appears in recent history\b/i,
+  /\bmust be skipped\b/i,
+];
+
+export function isSelfCorrectedSuggestion(s: { reasoning?: string | null }): boolean {
+  const r = s.reasoning ?? '';
+  return SELF_CORRECTION_PATTERNS.some(p => p.test(r));
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

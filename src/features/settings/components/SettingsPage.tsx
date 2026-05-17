@@ -2,6 +2,7 @@ import { Settings, LogOut } from 'lucide-react';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useProfile } from '@/features/auth/hooks/useProfile';
 import { AllowedUsersPanel } from './AllowedUsersPanel';
+import { RecipePromotionPanel } from './RecipePromotionPanel';
 
 export function SettingsPage() {
   const { user, signOut } = useAuth();
@@ -17,6 +18,9 @@ export function SettingsPage() {
       <div className="flex flex-col gap-4">
         {/* Allowed Users — admin only */}
         {isAdmin && <AllowedUsersPanel />}
+
+        {/* Recipe Promotion — admin only */}
+        {isAdmin && <RecipePromotionPanel />}
 
         {/* Location */}
         <div className="rounded-card bg-bg-surface p-4">

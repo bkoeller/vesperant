@@ -181,6 +181,73 @@ Rules:
 - For well-known bottles, provide accurate tags (region, style, notable characteristics)`;
 }
 
+// ============================================================
+// RECIPE PROMOTION (batch job: turn Tonight suggestions into canonical recipes)
+// ============================================================
+export function buildPromotionSystemPrompt(): string {
+  return `You are the intelligence behind Vesperant, a personal bar assistant. You are a world-class bartender with encyclopedic cocktail knowledge.
+
+## Your Role
+You receive a list of cocktail NAMES that were previously suggested to the user but are not yet in the canonical recipe library. For each name, decide whether it is a real, recognized cocktail. If yes, return its canonical recipe in structured form so the library can be expanded. If the name is fabricated, misspelled beyond recognition, a duplicate of an existing canonical recipe under a different name, or too obscure to have a single canonical form — exclude it and explain why.
+
+## Core Principles
+1. CANONICAL ONLY: Only emit recipes you would defend in a serious cocktail bar. Use Death & Co, PDT, Death & Co, Difford's, and IBA as your reference standards. No invented drinks.
+2. AVOID DUPLICATES: If a name is just a stylistic variant of something already canonical (e.g. "Cuban Daiquiri" → "Daiquiri"), exclude it with reason "duplicate_of:<canonical-name>".
+3. PRECISE INGREDIENTS: Use specific bottle identities where they matter (Drambuie, Bénédictine, Cynar, Aperol, Suze, Cocchi Americano, etc.) — do NOT use generic "liqueur". Use lowercase categories matching the enum.
+4. CATEGORIES: whisky, gin, vodka, rum, tequila, mezcal, brandy, cognac, liqueur, amaro, vermouth, bitters, syrup, mixer, garnish, wine, beer, other.
+5. METHODS: stir, shake, build, blend, muddle, layer, other.
+
+## Response Format
+Respond ONLY with valid JSON. No markdown fences, no explanation outside JSON.`;
+}
+
+export function buildPromotionUserPrompt(names: string[]): string {
+  return `Here are cocktail names that have been suggested to users but are not in the canonical recipe library. For each, either return a canonical recipe object or exclude it with a reason.
+
+## Candidate names
+${names.map(n => `- ${n}`).join('\n')}
+
+## Task
+Respond with ONLY valid JSON in this EXACT schema:
+
+{
+  "recipes": [
+    {
+      "name": "string (canonical name — may differ in casing/spelling from the candidate)",
+      "candidate_name": "string (exact candidate name as given above)",
+      "slug": "string (lowercase, dashed)",
+      "aliases": ["string"],
+      "description": "string (1-2 sentences)",
+      "history": "string (2-3 sentences)",
+      "method": "stir|shake|build|blend|muddle|layer|other",
+      "glassware": "string",
+      "garnish": "string",
+      "tags": ["string (e.g. 'classic', 'tiki', 'spirit-forward', 'bourbon', 'gin')"],
+      "iba_category": "string or null",
+      "ingredients": [
+        {
+          "ingredient_name": "string (specific identity, e.g. 'Drambuie', 'Sweet Vermouth', 'Bourbon Whiskey', 'Fresh Lime Juice')",
+          "ingredient_category": "whisky|gin|vodka|rum|tequila|mezcal|brandy|cognac|liqueur|amaro|vermouth|bitters|syrup|mixer|garnish|wine|beer|other",
+          "quantity": number,
+          "unit": "string (oz, dash, whole, sprig, etc.)",
+          "role": "base|modifier|accent|sweetener|sour|bitters|garnish|topper|rinse|other",
+          "optional": boolean,
+          "notes": "string or null"
+        }
+      ]
+    }
+  ],
+  "excluded": [
+    { "candidate_name": "string", "reason": "string (e.g. 'duplicate_of:Daiquiri', 'not_a_real_cocktail', 'too_obscure')" }
+  ]
+}
+
+Rules:
+- Be conservative. When in doubt, exclude.
+- If the candidate is a variant of an existing recipe, exclude with reason "duplicate_of:<name>".
+- Slugs must be unique per response and use only [a-z0-9-].`;
+}
+
 export function buildSuggestionSystemPrompt(): string {
   return `You are the intelligence behind Vesperant, a personal bar assistant. You are a world-class bartender with encyclopedic cocktail knowledge, cultural awareness, and deep respect for spirits.
 

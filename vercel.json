@@ -5,5 +5,11 @@
   "rewrites": [
     { "source": "/api/:path*", "destination": "/api/:path*" },
     { "source": "/(.*)", "destination": "/index.html" }
+  ],
+  "crons": [
+    {
+      "path": "/api/promote-recipes",
+      "schedule": "0 12 * * 1"
+    }
   ]
 }

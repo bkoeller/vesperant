@@ -65,12 +65,13 @@ export async function callClaudeStreaming(
   systemPrompt: string,
   userPrompt: string,
   onDelta: (accumulated: string) => void,
+  model?: string,
 ): Promise<string> {
   const auth = await getAuthHeader();
   const res = await fetch('/api/claude', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: auth },
-    body: JSON.stringify({ systemPrompt, userPrompt, stream: true }),
+    body: JSON.stringify({ systemPrompt, userPrompt, stream: true, model }),
   });
 
   if (!res.ok || !res.body) {

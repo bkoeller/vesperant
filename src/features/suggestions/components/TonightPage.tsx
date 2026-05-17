@@ -9,7 +9,7 @@ import type { SuggestionResult } from '@/lib/claude';
 
 export function TonightPage() {
   const { user } = useAuth();
-  const { suggestions, loading, error, weather, suggest, refine, reset, responseTimeMs, sessionId } = useSuggestions(user?.id);
+  const { suggestions, loading, error, weather, suggest, refine, reset, responseTimeMs, sessionId, filteredCount } = useSuggestions(user?.id);
   const createLog = useCreateLog();
   const [mood, setMood] = useState('');
   const [occasion, setOccasion] = useState('');
@@ -198,6 +198,13 @@ export function TonightPage() {
           />
         ))}
       </div>
+
+      {/* Note when filter dropped cards as duplicates */}
+      {!loading && filteredCount > 0 && (
+        <p className="text-xs italic text-text-tertiary">
+          Skipped {filteredCount} repeat{filteredCount === 1 ? '' : 's'} from your recent history. Refine for more options.
+        </p>
+      )}
 
       {/* Refinement input — only available once streaming finishes */}
       {!loading && (

@@ -18,41 +18,51 @@ import { extractCompleteSuggestionObjects } from './partial-suggestions';
  * phrase. Both signals indicate Claude got confused mid-generation and the
  * card's name/reasoning will disagree.
  */
+export interface StreamResult {
+  suggestions: SuggestionResult[];
+  filteredCount: number;
+}
+
 async function streamSuggestions(
   systemPrompt: string,
   userPrompt: string,
   recentHistory: string[],
   onPartial: (suggestions: SuggestionResult[]) => void,
-): Promise<SuggestionResult[]> {
+): Promise<StreamResult> {
   const historySet = new Set(recentHistory.map(n => n.trim().toLowerCase()));
-  console.log('[Vesperant suggestions] history filter active. entries:', recentHistory.length, Array.from(historySet));
   let lastCount = 0;
   let latest: SuggestionResult[] = [];
+  let filteredCount = 0;
 
-  await callClaudeStreaming(systemPrompt, userPrompt, (accumulated) => {
-    const raw = extractCompleteSuggestionObjects(accumulated);
-    if (raw.length > lastCount) {
-      lastCount = raw.length;
-      latest = raw
-        .map(normalizeSuggestion)
-        .filter(s => {
-          const nameLc = s.recipe_name.trim().toLowerCase();
-          if (historySet.has(nameLc)) {
-            console.log('[Vesperant suggestions] DROPPED (in history):', s.recipe_name);
-            return false;
-          }
-          if (isSelfCorrectedSuggestion(s)) {
-            console.log('[Vesperant suggestions] DROPPED (self-correction):', s.recipe_name, '|', s.reasoning?.slice(0, 80));
-            return false;
-          }
-          console.log('[Vesperant suggestions] KEPT:', s.recipe_name);
-          return true;
-        });
-      onPartial(latest);
-    }
-  });
+  await callClaudeStreaming(
+    systemPrompt,
+    userPrompt,
+    (accumulated) => {
+      const raw = extractCompleteSuggestionObjects(accumulated);
+      if (raw.length > lastCount) {
+        lastCount = raw.length;
+        let dropped = 0;
+        latest = raw
+          .map(normalizeSuggestion)
+          .filter(s => {
+            const nameLc = s.recipe_name.trim().toLowerCase();
+            if (historySet.has(nameLc) || isSelfCorrectedSuggestion(s)) {
+              dropped++;
+              return false;
+            }
+            return true;
+          });
+        filteredCount = dropped;
+        onPartial(latest);
+      }
+    },
+    // Haiku 4.5 is ~2-3x faster than Sonnet for this structured-output task
+    // and quality is comparable for "pick three cocktails." Saves ~15-20s
+    // of wall-clock time per suggestion run.
+    'claude-haiku-4-5-20251001',
+  );
 
-  return latest;
+  return { suggestions: latest, filteredCount };
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -257,6 +267,7 @@ export function useSuggestions(userId?: string) {
   const [weather, setWeather] = useState<WeatherContext | null>(null);
   const [responseTimeMs, setResponseTimeMs] = useState<number | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [filteredCount, setFilteredCount] = useState<number>(0);
 
   // Fetch weather on mount
   useEffect(() => {
@@ -296,15 +307,21 @@ export function useSuggestions(userId?: string) {
 
       const start = performance.now();
       let firstCardAt: number | null = null;
-      const parsed = await streamSuggestions(systemPrompt, userPrompt, recentHistory, (partial) => {
-        if (firstCardAt === null && partial.length > 0) {
-          firstCardAt = performance.now() - start;
-          setResponseTimeMs(Math.round(firstCardAt));
-        }
-        setSuggestions(partial);
-      });
+      const { suggestions: parsed, filteredCount: dropped } = await streamSuggestions(
+        systemPrompt,
+        userPrompt,
+        recentHistory,
+        (partial) => {
+          if (firstCardAt === null && partial.length > 0) {
+            firstCardAt = performance.now() - start;
+            setResponseTimeMs(Math.round(firstCardAt));
+          }
+          setSuggestions(partial);
+        },
+      );
       // Final timing reflects total wall time once streaming closes.
       setResponseTimeMs(Math.round(performance.now() - start));
+      setFilteredCount(dropped);
 
       // Persist session + suggestions to DB
       if (userId) {
@@ -345,14 +362,20 @@ export function useSuggestions(userId?: string) {
 
       const start = performance.now();
       let firstCardAt: number | null = null;
-      const parsed = await streamSuggestions(systemPrompt, userPrompt, recentHistory, (partial) => {
-        if (firstCardAt === null && partial.length > 0) {
-          firstCardAt = performance.now() - start;
-          setResponseTimeMs(Math.round(firstCardAt));
-        }
-        setSuggestions(partial);
-      });
+      const { suggestions: parsed, filteredCount: dropped } = await streamSuggestions(
+        systemPrompt,
+        userPrompt,
+        recentHistory,
+        (partial) => {
+          if (firstCardAt === null && partial.length > 0) {
+            firstCardAt = performance.now() - start;
+            setResponseTimeMs(Math.round(firstCardAt));
+          }
+          setSuggestions(partial);
+        },
+      );
       setResponseTimeMs(Math.round(performance.now() - start));
+      setFilteredCount(dropped);
 
       // Save refinement results
       if (userId) {
@@ -376,7 +399,8 @@ export function useSuggestions(userId?: string) {
     setContext(null);
     setResponseTimeMs(null);
     setSessionId(null);
+    setFilteredCount(0);
   };
 
-  return { suggestions, context, loading, error, suggest, refine, reset, weather, responseTimeMs, sessionId };
+  return { suggestions, context, loading, error, suggest, refine, reset, weather, responseTimeMs, sessionId, filteredCount };
 }

@@ -1,6 +1,13 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 
+// Allow up to 60 seconds — the suggestion stream can take ~30-40s wall-clock
+// even though the client renders cards within ~3-6s. Hobby plan default is
+// 10s and would cut the stream off mid-response.
+export const config = {
+  maxDuration: 60,
+};
+
 // Read VITE_SUPABASE_URL (the client-side var) so server and client always
 // point at the same Supabase project. The VITE_ prefix is just a Vite
 // build-time convention; Vercel exposes the env var to serverless functions
@@ -122,11 +129,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // and accumulates output_tokens from the final message_delta for usage
     // logging on the next non-stream call cycle.
     if (wantsStream && anthropicRes.body) {
-      res.setHeader('Content-Type', 'text/event-stream');
-      res.setHeader('Cache-Control', 'no-cache, no-transform');
+      res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+      res.setHeader('Cache-Control', 'no-cache, no-store, no-transform');
       res.setHeader('Connection', 'keep-alive');
-      // Disable Vercel's buffering layer for SSE.
-      res.setHeader('X-Accel-Buffering', 'no');
+      // Vercel honors this on Fluid Compute deployments to skip buffering.
+      // (X-Accel-Buffering is nginx-specific and does nothing on Vercel.)
+      res.setHeader('Content-Encoding', 'none');
+
+      // CRITICAL on Vercel: flush headers immediately so the client sees the
+      // response start now, not when the handler returns. Without this the
+      // Vercel runtime/edge buffers the entire body.
+      res.flushHeaders();
+
+      // Send an immediate SSE comment so the client's reader unblocks. If
+      // streaming is working you'll see this hit the client in <1s; if it
+      // arrives at the same time as everything else, buffering is still on.
+      res.write(`: stream open ${Date.now()}\n\n`);
 
       // Track usage for best-effort logging once the stream finishes.
       let inputTokens: number | null = null;

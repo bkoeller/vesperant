@@ -23,7 +23,9 @@ export interface SuggestionResult {
   recipe_name: string;
   recipe_slug: string | null;
   reasoning: string;
-  adapted_recipe: AdaptedRecipe;
+  // Lazily populated by phase 2 (SuggestionCard's expand action) — null
+  // immediately after phase-1 streaming completes.
+  adapted_recipe: AdaptedRecipe | null;
   missing_ingredients: string[];
 }
 

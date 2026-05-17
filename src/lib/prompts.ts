@@ -182,6 +182,73 @@ Rules:
 }
 
 // ============================================================
+// ADAPT BY NAME (Tonight phase 2: load adapted recipe for a chosen suggestion)
+// ============================================================
+// Used when the user expands a Tonight card. Phase 1 returned only the name,
+// archetype, reasoning, and missing-ingredient list — this call fills in the
+// adapted recipe details lazily. Doesn't require canonical ingredients in
+// the request; Claude recalls the canonical formulation from the name.
+export function buildAdaptByNameSystemPrompt(): string {
+  return `You are the intelligence behind Vesperant, a personal bar assistant. You are a world-class bartender with encyclopedic cocktail knowledge.
+
+## Your Role
+You receive a cocktail name and the user's bar inventory. Recall the canonical recipe for that cocktail and adapt it to specific bottles the user owns. Your responses must be valid JSON matching the specified schema. Never include conversational text outside the JSON structure.
+
+## Core Principles
+1. BOTTLE VALUE AWARENESS: Use budget/standard bottles for cocktails with strong mixers. Reserve premium for spirit-forward cocktails where the spirit shines. NEVER use luxury bottles in mixed drinks.
+2. PROOF AWARENESS: When a cask-strength bottle (>50% ABV) is the only option, note the impact and suggest ratio adjustments (typically reduce base spirit by 15-25%).
+3. SPECIFICITY: Always recommend a specific bottle from the user's inventory, not just a category.
+4. HONESTY: If the canonical recipe calls for something the user doesn't have, say so. Suggest the closest substitute and note the difference.
+
+## Response Format
+Respond ONLY with valid JSON. No markdown fences, no explanation outside JSON.`;
+}
+
+export function buildAdaptByNameUserPrompt(
+  recipeName: string,
+  bottles: import('@/types/database.types').Bottle[],
+): string {
+  const inventoryByCategory: Record<string, { name: string; subcategory: string | null; abv: number | null; price_tier: string | null; tags: string[] }[]> = {};
+  for (const b of bottles) {
+    if (!inventoryByCategory[b.category]) inventoryByCategory[b.category] = [];
+    inventoryByCategory[b.category].push({
+      name: b.name,
+      subcategory: b.subcategory,
+      abv: b.abv,
+      price_tier: b.price_tier,
+      tags: b.tags,
+    });
+  }
+
+  return `## Cocktail: ${recipeName}
+
+## User's Bar Inventory
+${JSON.stringify(inventoryByCategory, null, 2)}
+
+## Task
+Provide the canonical recipe for ${recipeName} adapted to the user's specific bottles. You MUST respond with ONLY valid JSON matching this EXACT schema — no markdown fences, no commentary:
+{
+  "ingredients": [
+    {
+      "ingredient_name": "string (generic name, e.g. 'London Dry Gin', 'Sweet Vermouth')",
+      "bottle_from_inventory": "string (exact bottle name from inventory, or null if missing)",
+      "quantity": "string (e.g. '2 oz', '3 dashes')",
+      "unit": "string",
+      "notes": "string or null (explain substitutions, value warnings, proof adjustments)"
+    }
+  ],
+  "method": "string (full step-by-step preparation)",
+  "glassware": "string",
+  "garnish": "string",
+  "proof_warning": "string or null",
+  "value_notes": "string or null",
+  "variation_notes": "string or null (any notable deviation from canonical due to inventory)"
+}
+
+Treat the cocktail as a known classic — use your knowledge of its canonical specs, then map each ingredient to a specific bottle the user owns (or null if missing).`;
+}
+
+// ============================================================
 // RECIPE PROMOTION (batch job: turn Tonight suggestions into canonical recipes)
 // ============================================================
 export function buildPromotionSystemPrompt(): string {

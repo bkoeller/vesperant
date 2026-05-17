@@ -5,10 +5,12 @@ import { SuggestionCard } from './SuggestionCard';
 import { LogForm } from '@/features/cocktail-log/components/LogForm';
 import { useCreateLog } from '@/features/cocktail-log/hooks/useCocktailLog';
 import { useAuth } from '@/features/auth/hooks/useAuth';
+import { useBottles } from '@/features/inventory/hooks/useBottles';
 import type { SuggestionResult } from '@/lib/claude';
 
 export function TonightPage() {
   const { user } = useAuth();
+  const { data: bottles } = useBottles();
   const { suggestions, loading, error, weather, suggest, refine, reset, responseTimeMs, sessionId, filteredCount } = useSuggestions(user?.id);
   const createLog = useCreateLog();
   const [mood, setMood] = useState('');
@@ -195,6 +197,7 @@ export function TonightPage() {
             key={`${s.archetype}-${i}`}
             suggestion={s}
             onMakeThis={handleMakeThis}
+            bottles={bottles}
           />
         ))}
       </div>

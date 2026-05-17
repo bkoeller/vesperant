@@ -88,10 +88,11 @@ describe('SuggestionCard', () => {
   it('shows a proof warning when present', async () => {
     const user = userEvent.setup();
     const warning = 'Cask strength — reduce base by 25%';
+    const base = makeSuggestion();
     render(
       <SuggestionCard
         suggestion={makeSuggestion({
-          adapted_recipe: { ...makeSuggestion().adapted_recipe, proof_warning: warning },
+          adapted_recipe: { ...base.adapted_recipe!, proof_warning: warning },
         })}
         onMakeThis={() => {}}
       />,

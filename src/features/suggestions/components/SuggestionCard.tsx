@@ -1,10 +1,16 @@
 import { useState } from 'react';
 import { ChevronDown, ChevronUp, AlertTriangle, Info } from 'lucide-react';
 import type { SuggestionResult } from '@/lib/claude';
+import type { Bottle } from '@/types/database.types';
+import { useAdaptByName } from '../hooks/useAdaptByName';
 
 interface SuggestionCardProps {
   suggestion: SuggestionResult;
   onMakeThis: (suggestion: SuggestionResult) => void;
+  // Optional: when provided, "Show recipe" lazy-loads the adapted recipe.
+  // When omitted (e.g. in tests), the card relies on suggestion.adapted_recipe
+  // already being populated.
+  bottles?: Bottle[];
 }
 
 function getArchetypeConfig(archetype: string) {
@@ -18,12 +24,23 @@ function getArchetypeConfig(archetype: string) {
   }
 }
 
-export function SuggestionCard({ suggestion, onMakeThis }: SuggestionCardProps) {
+export function SuggestionCard({ suggestion, onMakeThis, bottles }: SuggestionCardProps) {
   const [expanded, setExpanded] = useState(false);
   const config = getArchetypeConfig(suggestion.archetype);
-  const recipe = suggestion.adapted_recipe;
+  // Phase 2: lazily load the adapted recipe the first time the card is
+  // expanded. If Claude included one in phase 1 (rare — only happens when
+  // the prompt slips), we prefer that and skip the round trip.
+  const { adapted: lazyRecipe, loading: recipeLoading, error: recipeError, load } = useAdaptByName();
+  const recipe = suggestion.adapted_recipe ?? lazyRecipe;
 
-
+  const handleExpand = () => {
+    const next = !expanded;
+    setExpanded(next);
+    // Trigger phase-2 fetch on first expand if we don't already have a recipe.
+    if (next && !recipe && !recipeLoading && bottles && bottles.length > 0) {
+      void load(suggestion.recipe_name, bottles);
+    }
+  };
 
   return (
     <div className={`rounded-card border p-4 ${config.borderClass}`}>
@@ -54,12 +71,32 @@ export function SuggestionCard({ suggestion, onMakeThis }: SuggestionCardProps) 
 
       {/* Expand/collapse recipe */}
       <button
-        onClick={() => setExpanded(e => !e)}
+        onClick={handleExpand}
         className="mt-3 flex items-center gap-1.5 text-xs font-medium text-text-secondary hover:text-text-primary"
       >
         {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
         {expanded ? 'Hide recipe' : 'Show recipe'}
       </button>
+
+      {/* Phase-2 loading state */}
+      {expanded && recipeLoading && !recipe && (
+        <div className="mt-3 flex items-center gap-2 border-t border-bg-hover pt-3 text-xs text-text-secondary">
+          <span className="inline-block h-3 w-3 animate-spin rounded-full border border-accent-gold-dim border-t-accent-gold" />
+          Loading recipe...
+        </div>
+      )}
+
+      {expanded && recipeError && !recipe && (
+        <div className="mt-3 border-t border-bg-hover pt-3">
+          <p className="text-xs text-error">Couldn't load recipe: {recipeError}</p>
+          <button
+            onClick={() => bottles && load(suggestion.recipe_name, bottles)}
+            className="mt-1.5 text-xs text-accent-gold hover:underline"
+          >
+            Retry
+          </button>
+        </div>
+      )}
 
       {expanded && recipe && (
         <div className="mt-3 border-t border-bg-hover pt-3">

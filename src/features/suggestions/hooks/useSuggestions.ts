@@ -93,21 +93,30 @@ export function isSelfCorrectedSuggestion(s: { reasoning?: string | null }): boo
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function normalizeSuggestion(s: any): SuggestionResult {
-  const recipe = s.adapted_recipe ?? s.recipe ?? {};
-  const rawIngredients = recipe.ingredients ?? [];
+  // Phase 1 returns no adapted_recipe — SuggestionCard fills it in on expand.
+  // We still tolerate Claude including a full recipe in case the prompt slips,
+  // since the type accepts it either way.
+  let adapted: SuggestionResult['adapted_recipe'] = null;
+  const recipe = s.adapted_recipe ?? s.recipe;
+  if (recipe && (recipe.ingredients || recipe.method || recipe.glassware)) {
+    const rawIngredients = recipe.ingredients ?? [];
+    adapted = {
+      ingredients: rawIngredients.map(normalizeIngredient),
+      method: recipe.method ?? '',
+      glassware: recipe.glassware ?? recipe.glass ?? '',
+      garnish: recipe.garnish ?? '',
+      proof_warning: recipe.proof_warning ?? null,
+      value_notes: recipe.value_notes ?? null,
+      variation_notes: recipe.variation_notes ?? null,
+    };
+  }
   return {
     archetype: s.archetype ?? 'safe',
     recipe_name: s.recipe_name ?? s.name ?? 'Unknown',
     recipe_slug: s.recipe_slug ?? s.slug ?? null,
     reasoning: s.reasoning ?? s.cultural_connection ?? s.description ?? s.spirit_notes ?? '',
     missing_ingredients: s.missing_ingredients ?? [],
-    adapted_recipe: {
-      ingredients: rawIngredients.map(normalizeIngredient),
-      method: recipe.method ?? '',
-      glassware: recipe.glassware ?? recipe.glass ?? '',
-      garnish: recipe.garnish ?? '',
-      proof_warning: null, value_notes: null, variation_notes: null,
-    },
+    adapted_recipe: adapted,
   };
 }
 
@@ -190,6 +199,9 @@ ${recentHistory.map(name => `- ${name}`).join('\n')}
 `;
   }
 
+  // Phase-1 schema only — the full adapted_recipe is fetched lazily by
+  // SuggestionCard when the user expands it. Keeping the response short
+  // dramatically reduces wall-clock time for the initial card render.
   const schemaBlock = `
 {
   "suggestions": [
@@ -198,16 +210,7 @@ ${recentHistory.map(name => `- ${name}`).join('\n')}
       "recipe_name": "string",
       "recipe_slug": "string or null",
       "reasoning": "string (2-3 sentences explaining why this cocktail for this moment)",
-      "adapted_recipe": {
-        "ingredients": [{"ingredient_name": "string", "bottle_from_inventory": "string|null", "quantity": "string", "unit": "string", "notes": "string|null"}],
-        "method": "string",
-        "glassware": "string",
-        "garnish": "string",
-        "proof_warning": "string|null",
-        "value_notes": "string|null",
-        "variation_notes": "string|null"
-      },
-      "missing_ingredients": ["string"]
+      "missing_ingredients": ["string (zero or one items max)"]
     }
   ]
 }`;

@@ -90,8 +90,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   // ---- Forward to Claude ----
-  const { systemPrompt, userPrompt, messages, model } = req.body ?? {};
+  const { systemPrompt, userPrompt, messages, model, stream } = req.body ?? {};
   const userMessages = messages ?? [{ role: 'user', content: userPrompt }];
+  const wantsStream = stream === true;
 
   try {
     const anthropicRes = await fetch('https://api.anthropic.com/v1/messages', {
@@ -106,6 +107,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         max_tokens: 4096,
         system: systemPrompt,
         messages: userMessages,
+        stream: wantsStream,
       }),
     });
 
@@ -114,13 +116,79 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(anthropicRes.status).end(errText);
     }
 
+    // ---- Streaming branch ----
+    // The upstream SSE is passed through unmodified. The client parses it
+    // with the same event names (content_block_delta, message_delta, etc.)
+    // and accumulates output_tokens from the final message_delta for usage
+    // logging on the next non-stream call cycle.
+    if (wantsStream && anthropicRes.body) {
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache, no-transform');
+      res.setHeader('Connection', 'keep-alive');
+      // Disable Vercel's buffering layer for SSE.
+      res.setHeader('X-Accel-Buffering', 'no');
+
+      // Track usage for best-effort logging once the stream finishes.
+      let inputTokens: number | null = null;
+      let outputTokens: number | null = null;
+      let buffered = '';
+
+      const reader = anthropicRes.body.getReader();
+      const decoder = new TextDecoder();
+
+      try {
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          const chunk = decoder.decode(value, { stream: true });
+          buffered += chunk;
+          res.write(chunk);
+
+          // Pull usage out of SSE events as they fly by — message_start has
+          // input_tokens, message_delta has output_tokens.
+          // We just scan for "usage" lines and JSON.parse the surrounding data.
+          let nl;
+          while ((nl = buffered.indexOf('\n\n')) !== -1) {
+            const event = buffered.slice(0, nl);
+            buffered = buffered.slice(nl + 2);
+            const dataLine = event.split('\n').find(l => l.startsWith('data: '));
+            if (!dataLine) continue;
+            try {
+              const evt = JSON.parse(dataLine.slice(6));
+              if (evt?.type === 'message_start' && evt.message?.usage) {
+                inputTokens = evt.message.usage.input_tokens ?? null;
+              }
+              if (evt?.type === 'message_delta' && evt.usage) {
+                outputTokens = evt.usage.output_tokens ?? null;
+              }
+            } catch {
+              // Non-JSON event line — ignore.
+            }
+          }
+        }
+      } catch (streamErr) {
+        // The client will see the truncated stream end; nothing more to do.
+        console.error('[claude.ts] stream proxy error', streamErr);
+      } finally {
+        res.end();
+      }
+
+      void admin.from('claude_usage').insert({
+        user_id: userId,
+        endpoint: 'text-stream',
+        input_tokens: inputTokens,
+        output_tokens: outputTokens,
+      });
+      return;
+    }
+
+    // ---- Non-streaming branch (unchanged) ----
     const data = (await anthropicRes.json()) as {
       content: { text: string }[];
       usage?: { input_tokens?: number; output_tokens?: number };
     };
     const content = data.content?.[0]?.text ?? '';
 
-    // Best-effort usage logging — don't fail the request if this errors
     void admin.from('claude_usage').insert({
       user_id: userId,
       endpoint: messages ? 'vision' : 'text',

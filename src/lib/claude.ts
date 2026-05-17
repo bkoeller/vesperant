@@ -55,6 +55,60 @@ export function callClaude(systemPrompt: string, userPrompt: string): Promise<st
   return postClaude({ systemPrompt, userPrompt });
 }
 
+/**
+ * Stream a Claude completion. `onDelta` is called with the cumulative
+ * concatenated text each time new tokens arrive (not just the delta — the
+ * caller usually wants the running buffer for incremental JSON parsing).
+ * Resolves with the final accumulated text.
+ */
+export async function callClaudeStreaming(
+  systemPrompt: string,
+  userPrompt: string,
+  onDelta: (accumulated: string) => void,
+): Promise<string> {
+  const auth = await getAuthHeader();
+  const res = await fetch('/api/claude', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: auth },
+    body: JSON.stringify({ systemPrompt, userPrompt, stream: true }),
+  });
+
+  if (!res.ok || !res.body) {
+    const err = await res.text();
+    throw new Error(`Claude API error: ${err}`);
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let sseBuffer = '';
+  let accumulated = '';
+
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    sseBuffer += decoder.decode(value, { stream: true });
+
+    let nl;
+    while ((nl = sseBuffer.indexOf('\n\n')) !== -1) {
+      const event = sseBuffer.slice(0, nl);
+      sseBuffer = sseBuffer.slice(nl + 2);
+      const dataLine = event.split('\n').find(l => l.startsWith('data: '));
+      if (!dataLine) continue;
+      try {
+        const evt = JSON.parse(dataLine.slice(6));
+        if (evt?.type === 'content_block_delta' && evt.delta?.type === 'text_delta') {
+          accumulated += evt.delta.text ?? '';
+          onDelta(accumulated);
+        }
+      } catch {
+        // Ignore unparseable event payloads (e.g., comment heartbeats).
+      }
+    }
+  }
+
+  return accumulated;
+}
+
 export function callClaudeWithVision(
   systemPrompt: string,
   imageBase64: string,

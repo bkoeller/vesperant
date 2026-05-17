@@ -52,8 +52,9 @@ export function TonightPage() {
     });
   };
 
-  // Initial state — no suggestions yet
-  if (!suggestions && !loading) {
+  // Initial state — no suggestions yet AND no streaming in flight
+  const hasAnySuggestions = (suggestions?.length ?? 0) > 0;
+  if (!hasAnySuggestions && !loading) {
     return (
       <div className="flex flex-col items-center gap-8 pt-8">
         <div className="flex flex-col items-center gap-3 text-center">
@@ -128,8 +129,10 @@ export function TonightPage() {
     );
   }
 
-  // Loading state
-  if (loading) {
+  // Loading state — only when we have no cards yet. Once the first card
+  // streams in we drop into the suggestions view and just decorate it with
+  // a streaming indicator.
+  if (loading && !hasAnySuggestions) {
     return (
       <div className="flex flex-col items-center gap-6 pt-16">
         <div className="h-12 w-12 animate-spin rounded-full border-2 border-accent-gold-dim border-t-accent-gold" />
@@ -140,7 +143,7 @@ export function TonightPage() {
     );
   }
 
-  // Suggestions view
+  // Suggestions view (also rendered mid-stream once first card arrives)
   return (
     <div className="flex flex-col gap-5 pt-2">
       <div className="flex items-center justify-between">
@@ -164,10 +167,17 @@ export function TonightPage() {
         )}
         {responseTimeMs != null && (
           <span className="flex items-center gap-1.5 italic">
+            {loading ? 'first card in ' : ''}
             {responseTimeMs < 1000
               ? `${responseTimeMs}ms`
               : `${(responseTimeMs / 1000).toFixed(1)}s`
             }
+          </span>
+        )}
+        {loading && (
+          <span className="flex items-center gap-1.5 text-accent-gold">
+            <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-accent-gold" />
+            streaming...
           </span>
         )}
       </div>
@@ -189,24 +199,26 @@ export function TonightPage() {
         ))}
       </div>
 
-      {/* Refinement input */}
-      <div className="flex gap-2">
-        <input
-          type="text"
-          value={refinement}
-          onChange={e => setRefinement(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && handleRefine()}
-          placeholder="Steer me differently... (lighter, more bourbon, tropical...)"
-          className="flex-1 rounded-button bg-bg-surface px-3 py-2.5 text-sm text-text-primary outline-none ring-1 ring-bg-hover placeholder:text-text-tertiary focus:ring-accent-gold-dim"
-        />
-        <button
-          onClick={handleRefine}
-          disabled={!refinement.trim() || loading}
-          className="rounded-button bg-accent-gold px-4 text-bg-base transition-colors hover:bg-accent-amber disabled:opacity-50"
-        >
-          <Send size={16} />
-        </button>
-      </div>
+      {/* Refinement input — only available once streaming finishes */}
+      {!loading && (
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={refinement}
+            onChange={e => setRefinement(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleRefine()}
+            placeholder="Steer me differently... (lighter, more bourbon, tropical...)"
+            className="flex-1 rounded-button bg-bg-surface px-3 py-2.5 text-sm text-text-primary outline-none ring-1 ring-bg-hover placeholder:text-text-tertiary focus:ring-accent-gold-dim"
+          />
+          <button
+            onClick={handleRefine}
+            disabled={!refinement.trim() || loading}
+            className="rounded-button bg-accent-gold px-4 text-bg-base transition-colors hover:bg-accent-amber disabled:opacity-50"
+          >
+            <Send size={16} />
+          </button>
+        </div>
+      )}
 
       {/* Log modal */}
       {loggingSuggestion && (

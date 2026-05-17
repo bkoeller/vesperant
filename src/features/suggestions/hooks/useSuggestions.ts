@@ -1,32 +1,38 @@
 import { useState, useEffect } from 'react';
 import type { Bottle } from '@/types/database.types';
-import { callClaude, type SuggestionResult } from '@/lib/claude';
+import { callClaudeStreaming, type SuggestionResult } from '@/lib/claude';
 import { buildSuggestionSystemPrompt } from '@/lib/prompts';
 import { getLocationWeather, type WeatherContext } from '@/lib/weather';
 import { getEventsNearDate, getSeason, getTimeOfDay } from '@/lib/holidays';
 import { useBottles } from '@/features/inventory/hooks/useBottles';
 import { suggestionService } from '../suggestion.service';
+import { extractCompleteSuggestionObjects } from './partial-suggestions';
 
-function parseSuggestionResponse(raw: string): SuggestionResult[] {
-  let jsonStr = raw.trim();
-  if (jsonStr.startsWith('```')) {
-    jsonStr = jsonStr.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '');
-  }
-  const parsed = JSON.parse(jsonStr);
+/**
+ * Stream a Claude suggestion response, parsing each complete suggestion
+ * object as it lands and pushing it through `onPartial` so the UI can render
+ * cards progressively. Returns the final array (also passed via onPartial).
+ */
+async function streamSuggestions(
+  systemPrompt: string,
+  userPrompt: string,
+  onPartial: (suggestions: SuggestionResult[]) => void,
+): Promise<SuggestionResult[]> {
+  let lastCount = 0;
+  let latest: SuggestionResult[] = [];
 
-  // Handle different response shapes: {suggestions: [...]}, [...], or other
-  let arr: unknown[];
-  if (Array.isArray(parsed)) {
-    arr = parsed;
-  } else if (parsed.suggestions && Array.isArray(parsed.suggestions)) {
-    arr = parsed.suggestions;
-  } else {
-    // Try to find any array in the response
-    const firstArray = Object.values(parsed).find(v => Array.isArray(v));
-    arr = (firstArray as unknown[]) ?? [];
-  }
+  await callClaudeStreaming(systemPrompt, userPrompt, (accumulated) => {
+    const raw = extractCompleteSuggestionObjects(accumulated);
+    if (raw.length > lastCount) {
+      lastCount = raw.length;
+      latest = raw.map(normalizeSuggestion);
+      onPartial(latest);
+    }
+  });
 
-  return arr.map(normalizeSuggestion);
+  // If the final pass found more (rare — usually streaming caught everything),
+  // emit one more update.
+  return latest;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -246,11 +252,16 @@ export function useSuggestions(userId?: string) {
       const userPrompt = buildSuggestionUserPrompt(ctx, bottles, recentHistory);
 
       const start = performance.now();
-      const raw = await callClaude(systemPrompt, userPrompt);
+      let firstCardAt: number | null = null;
+      const parsed = await streamSuggestions(systemPrompt, userPrompt, (partial) => {
+        if (firstCardAt === null && partial.length > 0) {
+          firstCardAt = performance.now() - start;
+          setResponseTimeMs(Math.round(firstCardAt));
+        }
+        setSuggestions(partial);
+      });
+      // Final timing reflects total wall time once streaming closes.
       setResponseTimeMs(Math.round(performance.now() - start));
-
-      const parsed = parseSuggestionResponse(raw);
-      setSuggestions(parsed);
 
       // Persist session + suggestions to DB
       if (userId) {
@@ -290,11 +301,15 @@ export function useSuggestions(userId?: string) {
       const userPrompt = buildSuggestionUserPrompt(context, bottles, recentHistory, refinement, suggestions);
 
       const start = performance.now();
-      const raw = await callClaude(systemPrompt, userPrompt);
+      let firstCardAt: number | null = null;
+      const parsed = await streamSuggestions(systemPrompt, userPrompt, (partial) => {
+        if (firstCardAt === null && partial.length > 0) {
+          firstCardAt = performance.now() - start;
+          setResponseTimeMs(Math.round(firstCardAt));
+        }
+        setSuggestions(partial);
+      });
       setResponseTimeMs(Math.round(performance.now() - start));
-
-      const parsed = parseSuggestionResponse(raw);
-      setSuggestions(parsed);
 
       // Save refinement results
       if (userId) {

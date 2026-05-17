@@ -25,6 +25,7 @@ async function streamSuggestions(
   onPartial: (suggestions: SuggestionResult[]) => void,
 ): Promise<SuggestionResult[]> {
   const historySet = new Set(recentHistory.map(n => n.trim().toLowerCase()));
+  console.log('[Vesperant suggestions] history filter active. entries:', recentHistory.length, Array.from(historySet));
   let lastCount = 0;
   let latest: SuggestionResult[] = [];
 
@@ -35,14 +36,16 @@ async function streamSuggestions(
       latest = raw
         .map(normalizeSuggestion)
         .filter(s => {
-          // Hard exclusion: name appears in recent history. Bulletproof against
-          // any mid-stream self-correction since Claude can't change the name
-          // once emitted.
-          if (historySet.has(s.recipe_name.trim().toLowerCase())) return false;
-          // Backup: reasoning leaks self-correction language (catches cases
-          // where Claude invented a name not on the history list but still
-          // got confused).
-          if (isSelfCorrectedSuggestion(s)) return false;
+          const nameLc = s.recipe_name.trim().toLowerCase();
+          if (historySet.has(nameLc)) {
+            console.log('[Vesperant suggestions] DROPPED (in history):', s.recipe_name);
+            return false;
+          }
+          if (isSelfCorrectedSuggestion(s)) {
+            console.log('[Vesperant suggestions] DROPPED (self-correction):', s.recipe_name, '|', s.reasoning?.slice(0, 80));
+            return false;
+          }
+          console.log('[Vesperant suggestions] KEPT:', s.recipe_name);
           return true;
         });
       onPartial(latest);

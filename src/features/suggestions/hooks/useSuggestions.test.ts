@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildSuggestionUserPrompt } from './useSuggestions';
+import { buildSuggestionUserPrompt, normalizeSuggestion } from './useSuggestions';
 import type { Bottle } from '@/types/database.types';
 
 function makeBottle(overrides: Partial<Bottle>): Bottle {
@@ -112,6 +112,88 @@ describe('buildSuggestionUserPrompt — non-substitution rules', () => {
     // assertion will catch it.
     // (We don't assert the rule text here because the refinement prompt
     // currently doesn't include it — that's a known gap; see Phase 3.)
+  });
+});
+
+describe('buildSuggestionUserPrompt — key_ingredients contract', () => {
+  // Regression: phase-1 reasoning is shown to the user, then phase 2 builds
+  // the recipe by name. When the schema only carried prose reasoning, phase 2
+  // drifted into canonical recall and produced recipes that contradicted
+  // what the user just read (Smoking Bishop returned the Victorian mulled-
+  // wine punch even when the reasoning promised a peated Islay riff;
+  // Amnesia returned Chartreuse+Cointreau+Sambuca even when the reasoning
+  // promised Cocchi Americano + Green Chartreuse + lemon). The fix: phase 1
+  // emits an explicit key_ingredients array as the binding contract.
+  it('asks Claude to emit key_ingredients in the response schema', () => {
+    const prompt = buildSuggestionUserPrompt(baseContext, []);
+    expect(prompt).toContain('key_ingredients');
+  });
+
+  it('describes key_ingredients as the binding ingredient list', () => {
+    const prompt = buildSuggestionUserPrompt(baseContext, []);
+    // The schema description must make clear that key_ingredients includes
+    // every ingredient — not just the headline ones. Otherwise phase 2
+    // adds missing canonical ingredients back in.
+    expect(prompt).toMatch(/every ingredient/i);
+  });
+
+  it('tells Claude that reasoning must be consistent with key_ingredients', () => {
+    const prompt = buildSuggestionUserPrompt(baseContext, []);
+    expect(prompt).toMatch(/consistent with key_ingredients/i);
+  });
+});
+
+describe('buildSuggestionSystemPrompt — name/recipe coherence', () => {
+  // Regression: phase 1 was naming invented builds after canonical cocktails
+  // (e.g. calling a peated Islay riff "Smoking Bishop"), which then made
+  // phase 2's name-based recall produce wildly wrong recipes. The hard rule
+  // forces Claude to either describe the actual canonical drink or pick an
+  // original name.
+  it('forbids attaching a canonical cocktail name to an invented build', async () => {
+    const { buildSuggestionSystemPrompt } = await import('@/lib/prompts');
+    const prompt = buildSuggestionSystemPrompt();
+    expect(prompt).toMatch(/NAME ?\/ ?RECIPE COHERENCE/i);
+    expect(prompt).toMatch(/canonical/i);
+  });
+});
+
+describe('normalizeSuggestion — key_ingredients pass-through', () => {
+  it('preserves key_ingredients from the raw response', () => {
+    const result = normalizeSuggestion({
+      archetype: 'cultural',
+      recipe_name: 'Amnesia',
+      reasoning: 'A bittersweet aperitif.',
+      key_ingredients: ['Cocchi Americano', 'Green Chartreuse', 'Lemon Juice'],
+      missing_ingredients: [],
+    });
+    expect(result.key_ingredients).toEqual([
+      'Cocchi Americano',
+      'Green Chartreuse',
+      'Lemon Juice',
+    ]);
+  });
+
+  it('filters non-string entries out of key_ingredients (defensive)', () => {
+    const result = normalizeSuggestion({
+      archetype: 'safe',
+      recipe_name: 'Negroni',
+      reasoning: '',
+      // Claude has been known to occasionally emit objects in arrays meant
+      // to hold strings; we strip those rather than crash on toLowerCase.
+      key_ingredients: ['Gin', { name: 'Campari' }, '', null, 'Sweet Vermouth'],
+      missing_ingredients: [],
+    });
+    expect(result.key_ingredients).toEqual(['Gin', 'Sweet Vermouth']);
+  });
+
+  it('leaves key_ingredients undefined when the response omits it (back-compat)', () => {
+    const result = normalizeSuggestion({
+      archetype: 'safe',
+      recipe_name: 'Negroni',
+      reasoning: '',
+      missing_ingredients: [],
+    });
+    expect(result.key_ingredients).toBeUndefined();
   });
 });
 

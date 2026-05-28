@@ -91,8 +91,12 @@ export function isSelfCorrectedSuggestion(s: { reasoning?: string | null }): boo
   return SELF_CORRECTION_PATTERNS.some(p => p.test(r));
 }
 
+// Exported for unit testing. Reads the raw streamed object and produces a
+// SuggestionResult, tolerating older field names from earlier prompt
+// revisions. key_ingredients is the phase-1→phase-2 binding contract and
+// must survive normalization, so we filter to string entries explicitly.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function normalizeSuggestion(s: any): SuggestionResult {
+export function normalizeSuggestion(s: any): SuggestionResult {
   // Phase 1 returns no adapted_recipe — SuggestionCard fills it in on expand.
   // We still tolerate Claude including a full recipe in case the prompt slips,
   // since the type accepts it either way.

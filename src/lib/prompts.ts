@@ -261,7 +261,9 @@ You MUST respond with ONLY valid JSON matching this EXACT schema — no markdown
   "variation_notes": "string or null (any notable deviation from canonical due to inventory)"
 }
 
-The ingredients array MUST have one entry per Required Ingredient, in the same order. Use the ingredient name from the Required list as ingredient_name; resolve it to an inventory bottle for bottle_from_inventory when possible.`;
+${keyIngredients && keyIngredients.length > 0
+  ? `The ingredients array MUST have one entry per Required Ingredient, in the same order. Use the ingredient name from the Required list as ingredient_name; resolve it to an inventory bottle for bottle_from_inventory when possible.`
+  : `Choose ingredients from your knowledge of the canonical recipe, resolving each to a specific bottle from the inventory when possible.`}`;
 }
 
 // ============================================================

@@ -118,6 +118,8 @@
 - **Progressive refinement:** after initial suggestions, user can steer ("something lighter," "more citrus-forward," "I'm in the mood for bourbon," "never tried that before")
 - All suggestions are **constrained to the user's current inventory** (or flag if one ingredient is missing)
 - Suggestions should factor in the user's history to avoid over-repetition and highlight untried recipes
+- **Two-phase generation with a binding ingredient contract.** Phase 1 streams three suggestion cards (name + reasoning + `key_ingredients` array). Phase 2 lazily loads the adapted recipe when the user expands a card. Phase 1's `key_ingredients` is passed to phase 2 as the binding ingredient list — phase 2's job is to assign quantities, units, method, glassware, and garnish, NOT to choose ingredients. This prevents Claude from drifting into canonical-recipe recall by name (e.g. so naming an invented build "Smoking Bishop" doesn't return the canonical Victorian mulled-wine punch). The system prompt also forbids attaching a famous cocktail name to an invented build in the first place.
+- **Library cross-link.** When a suggestion's name (or alias) matches a recipe in the canonical library, the title is rendered as a link to the recipe detail page; browser back returns to the originating Tonight/History page. Same wiring applies in the History tab for both logged cocktails and past suggestion sessions.
 
 ### 5.5 Cocktail Log & Feedback
 

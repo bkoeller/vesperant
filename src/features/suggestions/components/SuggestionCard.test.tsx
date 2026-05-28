@@ -4,6 +4,22 @@ import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SuggestionCard } from './SuggestionCard';
 import type { SuggestionResult } from '@/lib/claude';
+import type { Bottle } from '@/types/database.types';
+
+// Capture the most recent call to load() so we can pin the phase-1 →
+// phase-2 wiring. This is the hand-off where the binding contract lives:
+// if SuggestionCard ever stops forwarding key_ingredients, phase 2 falls
+// back to canonical recall and the Smoking-Bishop / Amnesia class of bug
+// returns.
+const loadMock = vi.fn();
+vi.mock('../hooks/useAdaptByName', () => ({
+  useAdaptByName: () => ({
+    adapted: null,
+    loading: false,
+    error: null,
+    load: loadMock,
+  }),
+}));
 
 // The card now reads the recipe library via useRecipes to know whether to
 // render the title as a link. Wrap renders in a QueryClientProvider so the
@@ -109,6 +125,39 @@ describe('SuggestionCard', () => {
     );
     await user.click(screen.getByText('Show recipe'));
     expect(screen.getByText(warning)).toBeInTheDocument();
+  });
+
+  it('forwards key_ingredients to the phase-2 load() on expand', async () => {
+    // This is the wiring that keeps the recipe shown next to the reasoning
+    // consistent with what the user already saw. Without these arguments,
+    // phase 2 reverts to canonical-recipe recall by name and the recipe can
+    // contradict the description (see the "Smoking Bishop returned mulled
+    // wine" bug). The hook is mocked above; we just assert the call shape.
+    loadMock.mockClear();
+    const user = userEvent.setup();
+    const suggestion = makeSuggestion({
+      recipe_name: 'Amnesia',
+      reasoning: 'A bittersweet aperitif tied to the 1977 Cannes Festival.',
+      key_ingredients: ['Cocchi Americano', 'Green Chartreuse', 'Lemon Juice'],
+      adapted_recipe: null, // force phase-2 fetch on expand
+    });
+    const bottles: Bottle[] = [{
+      id: 'b1', user_id: 'u', name: 'Cocchi Americano', brand: null,
+      category: 'vermouth', subcategory: null, spirit_type: null, tags: [],
+      abv: 16.5, proof: 33, is_premium: false, price_tier: 'standard',
+      active: true, notes: null,
+      created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
+    }];
+    render(<SuggestionCard suggestion={suggestion} onMakeThis={() => {}} bottles={bottles} />);
+    await user.click(screen.getByText('Show recipe'));
+
+    expect(loadMock).toHaveBeenCalledTimes(1);
+    expect(loadMock).toHaveBeenCalledWith(
+      'Amnesia',
+      bottles,
+      suggestion.reasoning,
+      suggestion.key_ingredients,
+    );
   });
 
   it('fires onMakeThis with the suggestion when "Make this" is clicked', async () => {

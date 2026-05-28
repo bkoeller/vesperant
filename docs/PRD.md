@@ -134,6 +134,27 @@
 - Logging should be as frictionless as possible — one tap to log "I made this," then optionally expand to add notes
 - Timestamp automatically captured
 
+### 5.8 Data Export
+
+**Description:** Users can download their data as CSV for backup, analysis in spreadsheets, or portability if they ever move off the app.
+
+**Requirements:**
+- Accessible from the Settings page (single "Data export" panel, not per-page buttons — keeps the bottle/recipe/history pages uncluttered).
+- Three independent exports, one button each:
+  - **Bottle inventory** — one row per bottle with name, brand, category, subcategory, spirit_type, tags, ABV, proof, price tier, is_premium, active, notes, created_at.
+  - **Recipe library** — canonical + the user's custom recipes, with ingredients joined into a single cell (`"2 oz Gin; 1 oz Sweet Vermouth; 1 oz Campari"`) so the file stays flat (one row per recipe).
+  - **Cocktail history** — one row per logged cocktail: logged_at, recipe_name, rating, tasting_notes, social_context, bottles_used.
+- Files are date-stamped: `vesperant-<dataset>-YYYY-MM-DD.csv`.
+- RFC 4180 quoting (commas, embedded quotes, newlines in tasting notes all handled correctly).
+- UTF-8 BOM prepended so Excel opens non-ASCII bottle names without mojibake.
+- Per-user isolation enforced by Postgres RLS — exports only return rows the caller owns. Canonical recipes (`user_id IS NULL`) are included in the recipe export since they're library content readable by every user.
+- A spinner replaces the icon on the active export's button while the query runs; errors surface in-place inside the panel.
+
+**Out of scope (current):**
+- Import from CSV (round-trip). The user's stated workflow is export-for-backup / export-for-analysis, not migrate-between-apps.
+- JSON export or selective field picking.
+- Compression / multi-file ZIP. Each dataset is its own CSV.
+
 ### 5.7 Multi-User Access Management *(new in v2.0)*
 
 **Description:** The owner curates who can use the deployed instance.

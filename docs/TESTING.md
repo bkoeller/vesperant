@@ -42,13 +42,15 @@ Wider tiers run more, faster. Top tier catches what the lower tiers can't see.
 |---|---|---|---|
 | `src/lib/holidays.ts` | `holidays.test.ts` | 14 | `getEventsForDate`, `getEventsNearDate` annotations, `getSeason` boundaries, `getTimeOfDay` thresholds |
 | `src/lib/weather.ts` | `weather.test.ts` | 5 | Rounding, weather-code → condition mapping, error propagation, query-string shape |
+| `src/lib/csv.ts` (data export) | `csv.test.ts` | 14 | `escapeCell` for null/empty, plain strings, commas, embedded quotes (doubled per RFC 4180), CR/LF, string arrays joined with `"; "`, numbers, booleans; `toCsv` for header-only / header+body / column selection / column ordering / missing fields; `csvFilename` zero-padding |
+| `DataExportPanel` | `DataExportPanel.test.tsx` | 5 | All three Export buttons render; each button calls the right service and writes a CSV with the right header + dated filename; recipe export joins ingredients into one cell; history export is scoped to the current user id; service failures surface as inline error text and the download is not triggered |
 | `src/lib/prompts.ts` (phase-2 adapt-by-name) | `prompts.test.ts` | 9 | System prompt declares Required Ingredients as binding and forbids canonical-recipe overrides; user prompt renders the BINDING ingredient block, preserves order, omits it on back-compat, and includes the Promised Build (reasoning) |
 | `useSuggestions` prompt + normalizer | `useSuggestions.test.ts` | 12 | Existing bottle-inventory shape and non-substitution rules; plus phase-1 schema asks for `key_ingredients`, name/recipe coherence rule is present, `normalizeSuggestion` preserves and defensively filters the binding list |
 | `api/claude.ts` (auth gate) | `api/claude.test.ts` | 9 | Every gate path: 405 wrong method, 500 missing env, 401 no token, 401 bad JWT, 403 not allowlisted, 403 no email, 429 over cap, 200 happy path with usage logging, error propagation without leaking the API key |
 | `AuthGuard` | `AuthGuard.test.tsx` | 3 | Loading splash, LoginScreen render, children render |
 | `SuggestionCard` | `SuggestionCard.test.tsx` | 12 | Three archetype variants, expand/collapse, missing-ingredient warnings, proof warnings, `bottle_from_inventory` substitution, `onMakeThis` callback, and the phase-1→phase-2 wiring that forwards `key_ingredients` to `useAdaptByName.load()` |
 
-**Total: 76 tests, ~1.6s wall time.**
+**Total: 95 tests, ~1.8s wall time.**
 
 ### The phase-1 → phase-2 contract is the highest-value regression coverage
 

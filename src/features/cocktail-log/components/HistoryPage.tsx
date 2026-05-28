@@ -1,8 +1,10 @@
 import { useState, useMemo } from 'react';
+import { Link } from '@tanstack/react-router';
 import { Clock, Search, Star, Trash2, ChevronDown, ChevronUp, Sparkles } from 'lucide-react';
 import { format } from 'date-fns';
 import { useCocktailLogs, useDeleteLog } from '../hooks/useCocktailLog';
 import { useSuggestionHistory } from '@/features/suggestions/hooks/useSuggestionHistory';
+import { useRecipeSlugLookup } from '@/features/recipes/hooks/useRecipes';
 import type { CocktailLog } from '@/types/database.types';
 import type { SuggestionHistorySession } from '@/features/suggestions/suggestion.service';
 
@@ -29,7 +31,7 @@ function StarRating({ rating }: { rating: number }) {
   );
 }
 
-function LogEntry({ log, onDelete }: { log: CocktailLog; onDelete: (id: string) => void }) {
+function LogEntry({ log, onDelete, librarySlug }: { log: CocktailLog; onDelete: (id: string) => void; librarySlug: string | null }) {
   const [expanded, setExpanded] = useState(false);
   const hasDetails = log.rating || log.tasting_notes || log.social_context;
 
@@ -38,7 +40,17 @@ function LogEntry({ log, onDelete }: { log: CocktailLog; onDelete: (id: string) 
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1">
           <h3 className="font-serif text-lg font-semibold text-text-primary">
-            {log.recipe_name}
+            {librarySlug ? (
+              <Link
+                to="/recipes/$slug"
+                params={{ slug: librarySlug }}
+                className="text-text-primary no-underline hover:text-accent-gold hover:underline"
+              >
+                {log.recipe_name}
+              </Link>
+            ) : (
+              log.recipe_name
+            )}
           </h3>
           <div className="mt-1 flex flex-wrap items-center gap-3">
             <span className="text-xs text-text-tertiary">
@@ -81,7 +93,7 @@ function LogEntry({ log, onDelete }: { log: CocktailLog; onDelete: (id: string) 
   );
 }
 
-function SuggestionSessionEntry({ session }: { session: SuggestionHistorySession }) {
+function SuggestionSessionEntry({ session, lookupSlug }: { session: SuggestionHistorySession; lookupSlug: (name: string | null | undefined) => string | null }) {
   const [expanded, setExpanded] = useState(false);
   const ctx = session.context_signals as { mood?: string; occasion?: string; weather?: { temp_f?: number; condition?: string } };
 
@@ -99,6 +111,8 @@ function SuggestionSessionEntry({ session }: { session: SuggestionHistorySession
               </span>
             ))}
           </div>
+          {/* Title links live inside the expanded view below — keeping the
+              collapsed header click-to-expand avoids competing click targets. */}
           <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-text-tertiary">
             <span>{format(new Date(session.created_at), 'MMM d, yyyy · h:mm a')}</span>
             {ctx.mood && <span>· {ctx.mood}</span>}
@@ -111,17 +125,30 @@ function SuggestionSessionEntry({ session }: { session: SuggestionHistorySession
 
       {expanded && (
         <div className="mt-3 flex flex-col gap-2 border-t border-bg-hover pt-3">
-          {session.suggestions.map((s, i) => (
-            <div key={i} className="flex flex-col gap-1">
-              <div className="flex items-center gap-2">
-                <span className={`rounded-pill px-2 py-0.5 text-xs font-medium ${ARCHETYPE_STYLES[s.archetype] ?? ''}`}>
-                  {s.archetype}
-                </span>
-                <span className="text-sm font-medium text-text-primary">{s.recipe_name}</span>
+          {session.suggestions.map((s, i) => {
+            const slug = lookupSlug(s.recipe_name);
+            return (
+              <div key={i} className="flex flex-col gap-1">
+                <div className="flex items-center gap-2">
+                  <span className={`rounded-pill px-2 py-0.5 text-xs font-medium ${ARCHETYPE_STYLES[s.archetype] ?? ''}`}>
+                    {s.archetype}
+                  </span>
+                  {slug ? (
+                    <Link
+                      to="/recipes/$slug"
+                      params={{ slug }}
+                      className="text-sm font-medium text-text-primary no-underline hover:text-accent-gold hover:underline"
+                    >
+                      {s.recipe_name}
+                    </Link>
+                  ) : (
+                    <span className="text-sm font-medium text-text-primary">{s.recipe_name}</span>
+                  )}
+                </div>
+                <p className="text-xs text-text-secondary">{s.reasoning}</p>
               </div>
-              <p className="text-xs text-text-secondary">{s.reasoning}</p>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
@@ -131,6 +158,7 @@ function SuggestionSessionEntry({ session }: { session: SuggestionHistorySession
 export function HistoryPage() {
   const { data: logs, isLoading: logsLoading } = useCocktailLogs();
   const { data: suggestionSessions, isLoading: sugLoading } = useSuggestionHistory();
+  const lookupSlug = useRecipeSlugLookup();
   const deleteLog = useDeleteLog();
   const [tab, setTab] = useState<Tab>('cocktails');
   const [searchQuery, setSearchQuery] = useState('');
@@ -267,7 +295,7 @@ export function HistoryPage() {
         ) : (
           <div className="flex flex-col gap-2">
             {filteredLogs.map(log => (
-              <LogEntry key={log.id} log={log} onDelete={handleDelete} />
+              <LogEntry key={log.id} log={log} onDelete={handleDelete} librarySlug={lookupSlug(log.recipe_name)} />
             ))}
           </div>
         )
@@ -284,7 +312,7 @@ export function HistoryPage() {
         ) : (
           <div className="flex flex-col gap-2">
             {filteredSuggestions.map(session => (
-              <SuggestionSessionEntry key={session.id} session={session} />
+              <SuggestionSessionEntry key={session.id} session={session} lookupSlug={lookupSlug} />
             ))}
           </div>
         )

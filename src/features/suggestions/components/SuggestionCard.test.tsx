@@ -1,8 +1,18 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render as rtlRender, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SuggestionCard } from './SuggestionCard';
 import type { SuggestionResult } from '@/lib/claude';
+
+// The card now reads the recipe library via useRecipes to know whether to
+// render the title as a link. Wrap renders in a QueryClientProvider so the
+// hook doesn't blow up; the actual fetch is irrelevant — `data` stays
+// undefined and the lookup returns null, so the title falls back to text.
+function render(ui: React.ReactElement) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return rtlRender(<QueryClientProvider client={client}>{ui}</QueryClientProvider>);
+}
 
 function makeSuggestion(overrides: Partial<SuggestionResult> = {}): SuggestionResult {
   return {

@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { recipeService, type RecipeInput, type RecipeIngredientInput } from '../recipes.service';
 import { useAuth } from '@/features/auth/hooks/useAuth';
@@ -10,6 +11,33 @@ export function useRecipes() {
     queryKey: RECIPES_KEY,
     queryFn: recipeService.getAll,
   });
+}
+
+/**
+ * Returns a function that resolves a free-form recipe name (e.g. from a
+ * suggestion or a cocktail log entry) to a library slug, or null if the
+ * recipe isn't in the library. Matches by name OR alias, case-insensitive
+ * and trim-tolerant. Backed by the same cached `useRecipes` query, so this
+ * costs one fetch shared across the app.
+ */
+export function useRecipeSlugLookup(): (name: string | null | undefined) => string | null {
+  const { data: recipes } = useRecipes();
+  const index = useMemo(() => {
+    const map = new Map<string, string>();
+    if (!recipes) return map;
+    for (const r of recipes) {
+      map.set(r.name.trim().toLowerCase(), r.slug);
+      for (const alias of r.aliases ?? []) {
+        const key = alias.trim().toLowerCase();
+        if (key && !map.has(key)) map.set(key, r.slug);
+      }
+    }
+    return map;
+  }, [recipes]);
+  return (name) => {
+    if (!name) return null;
+    return index.get(name.trim().toLowerCase()) ?? null;
+  };
 }
 
 export function useRecipeBySlug(slug: string) {

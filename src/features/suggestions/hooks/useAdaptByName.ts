@@ -14,13 +14,13 @@ export function useAdaptByName() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const load = async (recipeName: string, bottles: Bottle[]) => {
+  const load = async (recipeName: string, bottles: Bottle[], reasoning?: string | null) => {
     setLoading(true);
     setError(null);
     try {
       const raw = await callClaude(
         buildAdaptByNameSystemPrompt(),
-        buildAdaptByNameUserPrompt(recipeName, bottles),
+        buildAdaptByNameUserPrompt(recipeName, bottles, reasoning),
       );
       let jsonStr = raw.trim();
       if (jsonStr.startsWith('```')) {

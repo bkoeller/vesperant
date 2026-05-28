@@ -1,7 +1,9 @@
 import { useState } from 'react';
+import { Link } from '@tanstack/react-router';
 import { ChevronDown, ChevronUp, AlertTriangle, Info } from 'lucide-react';
 import type { SuggestionResult } from '@/lib/claude';
 import type { Bottle } from '@/types/database.types';
+import { useRecipeSlugLookup } from '@/features/recipes/hooks/useRecipes';
 import { useAdaptByName } from '../hooks/useAdaptByName';
 
 interface SuggestionCardProps {
@@ -32,13 +34,19 @@ export function SuggestionCard({ suggestion, onMakeThis, bottles }: SuggestionCa
   // the prompt slips), we prefer that and skip the round trip.
   const { adapted: lazyRecipe, loading: recipeLoading, error: recipeError, load } = useAdaptByName();
   const recipe = suggestion.adapted_recipe ?? lazyRecipe;
+  const lookupSlug = useRecipeSlugLookup();
+  const librarySlug = lookupSlug(suggestion.recipe_name);
 
   const handleExpand = () => {
     const next = !expanded;
     setExpanded(next);
     // Trigger phase-2 fetch on first expand if we don't already have a recipe.
+    // Pass the phase-1 reasoning so the recipe stays consistent with the
+    // description the user has already seen (otherwise a canonical name like
+    // "Smoking Bishop" resolves to a totally different drink than the
+    // reasoning described).
     if (next && !recipe && !recipeLoading && bottles && bottles.length > 0) {
-      void load(suggestion.recipe_name, bottles);
+      void load(suggestion.recipe_name, bottles, suggestion.reasoning);
     }
   };
 
@@ -50,7 +58,17 @@ export function SuggestionCard({ suggestion, onMakeThis, bottles }: SuggestionCa
           {config.label}
         </span>
         <h3 className="mt-2 font-serif text-xl font-semibold text-text-primary">
-          {suggestion.recipe_name}
+          {librarySlug ? (
+            <Link
+              to="/recipes/$slug"
+              params={{ slug: librarySlug }}
+              className="text-text-primary no-underline hover:text-accent-gold hover:underline"
+            >
+              {suggestion.recipe_name}
+            </Link>
+          ) : (
+            suggestion.recipe_name
+          )}
         </h3>
       </div>
 
@@ -90,7 +108,7 @@ export function SuggestionCard({ suggestion, onMakeThis, bottles }: SuggestionCa
         <div className="mt-3 border-t border-bg-hover pt-3">
           <p className="text-xs text-error">Couldn't load recipe: {recipeError}</p>
           <button
-            onClick={() => bottles && load(suggestion.recipe_name, bottles)}
+            onClick={() => bottles && load(suggestion.recipe_name, bottles, suggestion.reasoning)}
             className="mt-1.5 text-xs text-accent-gold hover:underline"
           >
             Retry

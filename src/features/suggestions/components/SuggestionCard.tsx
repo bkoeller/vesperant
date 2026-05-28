@@ -41,12 +41,13 @@ export function SuggestionCard({ suggestion, onMakeThis, bottles }: SuggestionCa
     const next = !expanded;
     setExpanded(next);
     // Trigger phase-2 fetch on first expand if we don't already have a recipe.
-    // Pass the phase-1 reasoning so the recipe stays consistent with the
-    // description the user has already seen (otherwise a canonical name like
-    // "Smoking Bishop" resolves to a totally different drink than the
-    // reasoning described).
+    // Pass the phase-1 reasoning AND key_ingredients so the recipe stays
+    // consistent with what the user has already seen. key_ingredients is the
+    // binding contract — without it, Claude drifts into canonical recall
+    // (e.g. naming a build "Smoking Bishop" returns the canonical Victorian
+    // mulled wine instead of the build the reasoning described).
     if (next && !recipe && !recipeLoading && bottles && bottles.length > 0) {
-      void load(suggestion.recipe_name, bottles, suggestion.reasoning);
+      void load(suggestion.recipe_name, bottles, suggestion.reasoning, suggestion.key_ingredients);
     }
   };
 
@@ -108,7 +109,7 @@ export function SuggestionCard({ suggestion, onMakeThis, bottles }: SuggestionCa
         <div className="mt-3 border-t border-bg-hover pt-3">
           <p className="text-xs text-error">Couldn't load recipe: {recipeError}</p>
           <button
-            onClick={() => bottles && load(suggestion.recipe_name, bottles, suggestion.reasoning)}
+            onClick={() => bottles && load(suggestion.recipe_name, bottles, suggestion.reasoning, suggestion.key_ingredients)}
             className="mt-1.5 text-xs text-accent-gold hover:underline"
           >
             Retry

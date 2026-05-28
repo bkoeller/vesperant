@@ -110,11 +110,15 @@ function normalizeSuggestion(s: any): SuggestionResult {
       variation_notes: recipe.variation_notes ?? null,
     };
   }
+  const keyIngredients = Array.isArray(s.key_ingredients)
+    ? s.key_ingredients.filter((x: unknown): x is string => typeof x === 'string' && x.trim().length > 0)
+    : undefined;
   return {
     archetype: s.archetype ?? 'safe',
     recipe_name: s.recipe_name ?? s.name ?? 'Unknown',
     recipe_slug: s.recipe_slug ?? s.slug ?? null,
     reasoning: s.reasoning ?? s.cultural_connection ?? s.description ?? s.spirit_notes ?? '',
+    key_ingredients: keyIngredients,
     missing_ingredients: s.missing_ingredients ?? [],
     adapted_recipe: adapted,
   };
@@ -202,6 +206,9 @@ ${recentHistory.map(name => `- ${name}`).join('\n')}
   // Phase-1 schema only — the full adapted_recipe is fetched lazily by
   // SuggestionCard when the user expands it. Keeping the response short
   // dramatically reduces wall-clock time for the initial card render.
+  // key_ingredients is the BINDING contract: phase 2 uses it to build the
+  // recipe verbatim, bypassing any canonical recall that would otherwise
+  // contradict the reasoning shown to the user.
   const schemaBlock = `
 {
   "suggestions": [
@@ -209,7 +216,8 @@ ${recentHistory.map(name => `- ${name}`).join('\n')}
       "archetype": "safe" | "adventurous" | "cultural",
       "recipe_name": "string",
       "recipe_slug": "string or null",
-      "reasoning": "string (2-3 sentences explaining why this cocktail for this moment)",
+      "reasoning": "string (2-3 sentences explaining why this cocktail for this moment — must be consistent with key_ingredients)",
+      "key_ingredients": ["string (every ingredient the recipe will use, in order: base spirit first, then modifiers, then accents. Use the exact bottle name from inventory when possible, e.g. 'Kilchoman Machir Bay' not just 'Scotch'. Include all required items — typically 3-6 entries.)"],
       "missing_ingredients": ["string (zero or one items max)"]
     }
   ]

@@ -192,14 +192,15 @@ export function buildAdaptByNameSystemPrompt(): string {
   return `You are the intelligence behind Vesperant, a personal bar assistant. You are a world-class bartender with encyclopedic cocktail knowledge.
 
 ## Your Role
-You receive a cocktail name, the description the user has already seen for it (the "promised build"), and the user's bar inventory. Produce the recipe and adapt it to specific bottles the user owns. Your responses must be valid JSON matching the specified schema. Never include conversational text outside the JSON structure.
+You receive a cocktail name, the description the user has already seen ("Promised Build"), the explicit ingredient list the user will see ("Required Ingredients"), and the user's bar inventory. Produce the recipe and adapt it to specific bottles the user owns. Your responses must be valid JSON matching the specified schema. Never include conversational text outside the JSON structure.
 
 ## Core Principles
-1. HONOR THE PROMISED BUILD (CRITICAL): The user has already seen the description in "Promised Build" below. The recipe you return MUST be consistent with it — same base spirit, same modifiers, same general style. If the promised build conflicts with the canonical recipe for the name (e.g. the name is a real cocktail but the description describes a different drink), trust the PROMISED BUILD, not the name. The user will see the same description next to your recipe; an incoherent pairing is a bug.
-2. BOTTLE VALUE AWARENESS: Use budget/standard bottles for cocktails with strong mixers. Reserve premium for spirit-forward cocktails where the spirit shines. NEVER use luxury bottles in mixed drinks.
-3. PROOF AWARENESS: When a cask-strength bottle (>50% ABV) is the only option, note the impact and suggest ratio adjustments (typically reduce base spirit by 15-25%).
-4. SPECIFICITY: Always recommend a specific bottle from the user's inventory, not just a category. If the promised build names a specific bottle (e.g. "Kilchoman Machir Bay"), use that exact bottle if present in inventory.
-5. HONESTY: If a needed ingredient isn't in the inventory, mark bottle_from_inventory null and note the substitute.
+1. REQUIRED INGREDIENTS ARE BINDING (CRITICAL): If a "Required Ingredients" list is given, your recipe's ingredients MUST be exactly that list — same items, same order, no additions, no substitutions, no canonical-recipe overrides. The name is just a label; the ingredient list is the contract. NEVER fall back to a "more canonical" version of the named cocktail. You are ONLY adding quantities, units, method, glassware, and garnish to a build that has already been decided.
+2. HONOR THE PROMISED BUILD: The reasoning description has already been shown to the user. Your recipe must be consistent with it. An incoherent pairing of description and recipe is a user-facing bug.
+3. BOTTLE VALUE AWARENESS: Use budget/standard bottles in mixed drinks. Reserve premium for spirit-forward cocktails. NEVER use luxury bottles in mixed drinks.
+4. PROOF AWARENESS: When a cask-strength bottle (>50% ABV) is in the build, note the impact and suggest ratio adjustments (typically reduce base spirit by 15-25%).
+5. SPECIFICITY: Map each required ingredient to a specific bottle from the inventory. If an exact bottle was named in the requirements, use that bottle.
+6. HONESTY: If a required ingredient isn't in the inventory, mark bottle_from_inventory null and note the closest substitute.
 
 ## Response Format
 Respond ONLY with valid JSON. No markdown fences, no explanation outside JSON.`;
@@ -209,6 +210,7 @@ export function buildAdaptByNameUserPrompt(
   recipeName: string,
   bottles: import('@/types/database.types').Bottle[],
   reasoning?: string | null,
+  keyIngredients?: string[] | null,
 ): string {
   const inventoryByCategory: Record<string, { name: string; subcategory: string | null; abv: number | null; price_tier: string | null; tags: string[] }[]> = {};
   for (const b of bottles) {
@@ -223,16 +225,24 @@ export function buildAdaptByNameUserPrompt(
   }
 
   const promisedBuildBlock = reasoning && reasoning.trim().length > 0
-    ? `\n## Promised Build (the description the user has already seen — your recipe MUST match this)\n${reasoning.trim()}\n`
+    ? `\n## Promised Build (description the user has already seen)\n${reasoning.trim()}\n`
+    : '';
+
+  const requiredIngredientsBlock = keyIngredients && keyIngredients.length > 0
+    ? `\n## Required Ingredients (BINDING — your recipe MUST use exactly these, in this order)\n${keyIngredients.map(i => `- ${i}`).join('\n')}\n`
     : '';
 
   return `## Cocktail: ${recipeName}
-${promisedBuildBlock}
+${promisedBuildBlock}${requiredIngredientsBlock}
 ## User's Bar Inventory
 ${JSON.stringify(inventoryByCategory, null, 2)}
 
 ## Task
-Produce the recipe for ${recipeName} adapted to the user's specific bottles. If a Promised Build is given above, the recipe MUST be consistent with it — same base spirit, same modifiers, same style — even if that differs from the canonical recipe traditionally associated with the name. You MUST respond with ONLY valid JSON matching this EXACT schema — no markdown fences, no commentary:
+Build the recipe for "${recipeName}" using the Required Ingredients above. Your job is to assign quantities, units, method, glassware, and garnish — NOT to choose ingredients. Do NOT add, remove, or substitute ingredients from the Required list, even if the cocktail is a well-known classic whose canonical recipe differs. The name is just a label; the build is decided.
+
+If no Required Ingredients block is given (back-compat), fall back to your knowledge of the canonical recipe.
+
+You MUST respond with ONLY valid JSON matching this EXACT schema — no markdown fences, no commentary:
 {
   "ingredients": [
     {
@@ -251,7 +261,7 @@ Produce the recipe for ${recipeName} adapted to the user's specific bottles. If 
   "variation_notes": "string or null (any notable deviation from canonical due to inventory)"
 }
 
-If a Promised Build is given, treat it as the source of truth and map each ingredient it describes to a specific bottle from the inventory. Otherwise, treat the cocktail as a known classic and use your knowledge of its canonical specs.`;
+The ingredients array MUST have one entry per Required Ingredient, in the same order. Use the ingredient name from the Required list as ingredient_name; resolve it to an inventory bottle for bottle_from_inventory when possible.`;
 }
 
 // ============================================================

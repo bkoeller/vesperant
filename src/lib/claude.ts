@@ -23,6 +23,11 @@ export interface SuggestionResult {
   recipe_name: string;
   recipe_slug: string | null;
   reasoning: string;
+  // Binding ingredient list emitted by phase 1. Phase 2 builds the recipe
+  // verbatim from these names so it can't drift into a canonical recipe
+  // that contradicts the reasoning the user already saw. Optional for
+  // back-compat with old saved sessions that pre-date the field.
+  key_ingredients?: string[];
   // Lazily populated by phase 2 (SuggestionCard's expand action) — null
   // immediately after phase-1 streaming completes.
   adapted_recipe: AdaptedRecipe | null;

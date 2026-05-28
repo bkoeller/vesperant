@@ -57,6 +57,15 @@ export const recipeService = {
     return data as Recipe[];
   },
 
+  async getAllWithIngredients(): Promise<RecipeWithIngredients[]> {
+    const { data, error } = await recipes()
+      .select('*, recipe_ingredients(*)')
+      .order('name')
+      .order('sort_order', { referencedTable: 'recipe_ingredients' });
+    if (error) throw error;
+    return data as RecipeWithIngredients[];
+  },
+
   async getBySlug(slug: string): Promise<RecipeWithIngredients> {
     const { data, error } = await recipes()
       .select('*, recipe_ingredients(*)')

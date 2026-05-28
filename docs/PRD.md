@@ -191,6 +191,7 @@ Listed roughly in priority order based on interview:
 15. **Analytics dashboard** — spirit usage stats, rating trends, most-made cocktails, seasonal patterns
 16. **Per-user usage visibility** — let users see their daily Claude usage / remaining cap in Settings
 17. **Email invitations** — send the invited Gmail an actual invite link instead of just relying on them to know they've been added
+18. ~~**CSV data export**~~ *(done)* — one-click export of bottle inventory, recipe library (with ingredients joined), and cocktail history from the Settings page. UTF-8 BOM so Excel opens non-ASCII bottle names cleanly.
 
 ---
 

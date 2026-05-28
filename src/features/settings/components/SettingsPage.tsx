@@ -3,6 +3,7 @@ import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useProfile } from '@/features/auth/hooks/useProfile';
 import { AllowedUsersPanel } from './AllowedUsersPanel';
 import { RecipePromotionPanel } from './RecipePromotionPanel';
+import { DataExportPanel } from './DataExportPanel';
 
 export function SettingsPage() {
   const { user, signOut } = useAuth();
@@ -21,6 +22,9 @@ export function SettingsPage() {
 
         {/* Recipe Promotion — admin only */}
         {isAdmin && <RecipePromotionPanel />}
+
+        {/* Data export */}
+        <DataExportPanel />
 
         {/* Location */}
         <div className="rounded-card bg-bg-surface p-4">

@@ -38,10 +38,13 @@ export function claudeProxyPlugin(): Plugin {
               'Content-Type': 'application/json',
               'x-api-key': apiKey,
               'anthropic-version': '2023-06-01',
+              'anthropic-beta': 'server-side-fallback-2026-07-01',
             },
             body: JSON.stringify({
-              model: model || 'claude-sonnet-4-6',
-              max_tokens: 4096,
+              model: model || 'claude-sonnet-5-5',
+              max_tokens: 16000,
+              output_config: { effort: 'low' },
+              fallbacks: 'default',
               system: systemPrompt,
               messages: userMessages,
             }),
@@ -56,7 +59,12 @@ export function claudeProxyPlugin(): Plugin {
 
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const data = await anthropicRes.json() as any;
-          const content = data.content?.[0]?.text ?? '';
+          const content = (data.content ?? [])
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            .filter((b: any) => b.type === 'text')
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            .map((b: any) => b.text ?? '')
+            .join('');
 
           res.setHeader('Content-Type', 'application/json');
           res.end(JSON.stringify({ content }));

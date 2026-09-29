@@ -108,10 +108,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         'Content-Type': 'application/json',
         'x-api-key': ANTHROPIC_API_KEY,
         'anthropic-version': '2023-06-01',
+        'anthropic-beta': 'server-side-fallback-2026-07-01',
       },
       body: JSON.stringify({
-        model: model || 'claude-sonnet-4-6',
-        max_tokens: 4096,
+        model: model || 'claude-sonnet-5-5',
+        // Thinking is on by default for Sonnet 5.5 and counts toward
+        // max_tokens, so leave headroom beyond the visible reply.
+        max_tokens: 16000,
+        output_config: { effort: 'low' },
+        fallbacks: 'default',
         system: systemPrompt,
         messages: userMessages,
         stream: wantsStream,
@@ -202,10 +207,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // ---- Non-streaming branch (unchanged) ----
     const data = (await anthropicRes.json()) as {
-      content: { text: string }[];
+      content: { type: string; text?: string }[];
+      stop_reason?: string;
       usage?: { input_tokens?: number; output_tokens?: number };
     };
-    const content = data.content?.[0]?.text ?? '';
+    if (data.stop_reason === 'refusal') {
+      return res.status(422).json({ error: 'Claude declined this request' });
+    }
+    // The response can start with a thinking block, so pick text by type.
+    const content = (data.content ?? [])
+      .filter(b => b.type === 'text')
+      .map(b => b.text ?? '')
+      .join('');
 
     void admin.from('claude_usage').insert({
       user_id: userId,

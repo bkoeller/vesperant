@@ -167,10 +167,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         'Content-Type': 'application/json',
         'x-api-key': ANTHROPIC_API_KEY,
         'anthropic-version': '2023-06-01',
+        'anthropic-beta': 'server-side-fallback-2026-07-01',
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 8192,
+        model: 'claude-sonnet-5-5',
+        max_tokens: 16000,
+        output_config: { effort: 'low' },
+        fallbacks: 'default',
         system: buildPromotionSystemPrompt(),
         messages: [{ role: 'user', content: buildPromotionUserPrompt(candidates) }],
       }),
@@ -180,10 +183,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(anthropicRes.status).json({ error: 'Claude error', detail: errText });
     }
     const claudeData = (await anthropicRes.json()) as {
-      content: { text: string }[];
+      content: { type: string; text?: string }[];
+      stop_reason?: string;
       usage?: { input_tokens?: number; output_tokens?: number };
     };
-    const content = claudeData.content?.[0]?.text ?? '';
+    if (claudeData.stop_reason === 'refusal') {
+      return res.status(422).json({ error: 'Claude declined this request' });
+    }
+    const content = (claudeData.content ?? [])
+      .filter(b => b.type === 'text')
+      .map(b => b.text ?? '')
+      .join('');
 
     // Best-effort usage logging — record under a synthetic system user_id of
     // the first admin if invoked by cron (so the row has a valid FK).

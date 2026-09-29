@@ -198,7 +198,10 @@ describe('/api/claude — auth gate', () => {
     fetchMock.mockResolvedValueOnce({
       ok: true,
       json: async () => ({
-        content: [{ text: 'A perfect Negroni for tonight.' }],
+        content: [
+          { type: 'thinking', thinking: '', signature: 'sig' },
+          { type: 'text', text: 'A perfect Negroni for tonight.' },
+        ],
         usage: { input_tokens: 120, output_tokens: 45 },
       }),
     });

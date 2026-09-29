@@ -135,5 +135,5 @@ export function callClaudeWithVision(
       ],
     },
   ];
-  return postClaude({ systemPrompt, messages, model: 'claude-sonnet-4-6' });
+  return postClaude({ systemPrompt, messages, model: 'claude-sonnet-5-5' });
 }

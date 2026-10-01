@@ -48,9 +48,10 @@ Wider tiers run more, faster. Top tier catches what the lower tiers can't see.
 | `useSuggestions` prompt + normalizer | `useSuggestions.test.ts` | 12 | Existing bottle-inventory shape and non-substitution rules; plus phase-1 schema asks for `key_ingredients`, name/recipe coherence rule is present, `normalizeSuggestion` preserves and defensively filters the binding list |
 | `api/claude.ts` (auth gate) | `api/claude.test.ts` | 9 | Every gate path: 405 wrong method, 500 missing env, 401 no token, 401 bad JWT, 403 not allowlisted, 403 no email, 429 over cap, 200 happy path with usage logging, error propagation without leaking the API key |
 | `AuthGuard` | `AuthGuard.test.tsx` | 3 | Loading splash, LoginScreen render, children render |
+| `RecipeFormPage` | `RecipeFormPage.test.tsx` | 11 | New mode: empty start, Create gating on name + ingredient, trimmed/merged-tag payload with blank rows dropped, save error surfaced. Edit mode: loading state, every field hydrated (known vs custom tags, ingredient order), late-arriving data hydrates, background refetch doesn't clobber edits, update by id + navigate, non-owner and canonical recipes blocked |
 | `SuggestionCard` | `SuggestionCard.test.tsx` | 12 | Three archetype variants, expand/collapse, missing-ingredient warnings, proof warnings, `bottle_from_inventory` substitution, `onMakeThis` callback, and the phase-1→phase-2 wiring that forwards `key_ingredients` to `useAdaptByName.load()` |
 
-**Total: 95 tests, ~1.8s wall time.**
+**Total: 106 tests, ~1.8s wall time.**
 
 ### The phase-1 → phase-2 contract is the highest-value regression coverage
 

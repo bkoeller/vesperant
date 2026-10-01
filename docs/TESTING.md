@@ -48,10 +48,12 @@ Wider tiers run more, faster. Top tier catches what the lower tiers can't see.
 | `useSuggestions` prompt + normalizer | `useSuggestions.test.ts` | 12 | Existing bottle-inventory shape and non-substitution rules; plus phase-1 schema asks for `key_ingredients`, name/recipe coherence rule is present, `normalizeSuggestion` preserves and defensively filters the binding list |
 | `api/claude.ts` (auth gate) | `api/claude.test.ts` | 9 | Every gate path: 405 wrong method, 500 missing env, 401 no token, 401 bad JWT, 403 not allowlisted, 403 no email, 429 over cap, 200 happy path with usage logging, error propagation without leaking the API key |
 | `AuthGuard` | `AuthGuard.test.tsx` | 3 | Loading splash, LoginScreen render, children render |
+| `src/lib/recipe-text.ts` (copy recipe) | `recipe-text.test.ts` | 9 | Fraction glyphs and missing quantity/unit; URL joining; exact library and adapted layouts; optional/notes markers; garnish fallback; empty sections omitted with no blank-line runs or Markdown; link omitted when absent |
+| `CopyButton` | `CopyButton.test.tsx` | 5 | Writes `getText()` to the clipboard and confirms; text built only on click; text-variant label swap; reverts after 2s; clipboard rejection shows "Couldn't copy" |
 | `RecipeFormPage` | `RecipeFormPage.test.tsx` | 11 | New mode: empty start, Create gating on name + ingredient, trimmed/merged-tag payload with blank rows dropped, save error surfaced. Edit mode: loading state, every field hydrated (known vs custom tags, ingredient order), late-arriving data hydrates, background refetch doesn't clobber edits, update by id + navigate, non-owner and canonical recipes blocked |
 | `SuggestionCard` | `SuggestionCard.test.tsx` | 12 | Three archetype variants, expand/collapse, missing-ingredient warnings, proof warnings, `bottle_from_inventory` substitution, `onMakeThis` callback, and the phase-1→phase-2 wiring that forwards `key_ingredients` to `useAdaptByName.load()` |
 
-**Total: 106 tests, ~1.8s wall time.**
+**Total: 120 tests, ~1.8s wall time.**
 
 ### The phase-1 → phase-2 contract is the highest-value regression coverage
 
@@ -97,6 +99,8 @@ If a future change weakens any of these, the regression surfaces before it reach
 | `authenticated.spec.ts` — Suggest waits for inventory | ✅ | With the bottles response held back, the button reads "Loading your bar..." and is disabled; it enables once bottles arrive |
 | `authenticated.spec.ts` — suggestion flow | ✅ | Phase-1 SSE stream renders three cards with archetype badges and missing-ingredient warnings |
 | `authenticated.spec.ts` — phase-2 recipe on expand | ✅ | Expanding a card makes one non-stream call whose prompt carries the BINDING `key_ingredients`, and renders the recipe |
+| `copy-recipe.spec.ts` — library recipe | ✅ | Header copy icon writes the exact plain-text recipe, ending in the full recipe URL, to the real clipboard |
+| `copy-recipe.spec.ts` — Tonight card | ✅ | Copy appears only after expanding; copied text uses inventory bottle names and links to the library recipe |
 
 ### How authenticated specs work
 

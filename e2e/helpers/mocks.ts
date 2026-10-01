@@ -40,21 +40,41 @@ export async function mockSupabaseRest(
     const match = path.match(/\/rest\/v1\/([^/?]+)/);
     if (match) {
       const table = match[1];
-      const data = tables[table] ?? [];
-      // Supabase returns arrays for select. .maybeSingle() expects a single
-      // object; the client unwraps the array. Returning [] for an empty
-      // table gives maybeSingle data=null which is what we want for the
-      // "user is admin / not admin" branch.
+      const rows = applyEqFilters((tables[table] ?? []) as Record<string, unknown>[], url.searchParams);
+
+      // .single() asks PostgREST for one object via the Accept header; it
+      // 406s when nothing matches. Everything else (including .maybeSingle()
+      // on GET, which the client unwraps itself) gets the array.
+      const wantsObject = route.request().headers()['accept']?.includes('vnd.pgrst.object');
+      if (wantsObject) {
+        return rows.length > 0
+          ? route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(rows[0]) })
+          : route.fulfill({ status: 406, contentType: 'application/json', body: JSON.stringify({ code: 'PGRST116', message: 'No rows' }) });
+      }
       return route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify(data),
+        body: JSON.stringify(rows),
       });
     }
 
     // Anything we didn't expect — let it through so failures surface.
     return route.continue();
   });
+}
+
+/**
+ * Apply PostgREST `col=eq.value` filters; other operators are ignored. Rows
+ * that lack the column are kept, so minimal fixtures still match.
+ */
+function applyEqFilters(rows: Record<string, unknown>[], params: URLSearchParams) {
+  let out = rows;
+  for (const [col, expr] of params) {
+    if (!expr.startsWith('eq.')) continue;
+    const value = expr.slice(3);
+    out = out.filter(r => !(col in r) || String(r[col]) === value);
+  }
+  return out;
 }
 
 export interface ClaudeRequest {

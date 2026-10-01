@@ -155,6 +155,19 @@
 - JSON export or selective field picking.
 - Compression / multi-file ZIP. Each dataset is its own CSV.
 
+### 5.9 Copy Recipe
+
+**Description:** Any recipe can be copied to the clipboard as plain text, ready to paste into a chat or notes app (e.g. a Signal "Note to Self").
+
+**Requirements:**
+- Available wherever a full recipe is shown:
+  - **Recipe page header** — a copy icon beside the title, next to Edit/Delete; shown for every recipe, not only custom ones.
+  - **"Your Build" panel** (Adapt to My Bar) — a "Copy" text button beside Dismiss; copies the adapted version with the user's bottle names.
+  - **Tonight cards** — a "Copy" text button opposite "Hide recipe", shown only once the phase-2 recipe has loaded.
+- Plain text only (no Markdown), since chat apps like Signal don't render it: an uppercase title, method and glassware, one ingredient per line, garnish, description or method text, and any proof warning, separated by blank lines.
+- Ends with a full `https://…/recipes/<slug>` link, which receiving apps auto-link. Tonight suggestions that aren't in the library omit the link.
+- Feedback in place: the icon becomes a checkmark ("Copied", announced to screen readers) for two seconds; a clipboard failure shows "Couldn't copy".
+
 ### 5.7 Multi-User Access Management *(new in v2.0)*
 
 **Description:** The owner curates who can use the deployed instance.

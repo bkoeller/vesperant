@@ -5,6 +5,8 @@ import type { SuggestionResult } from '@/lib/claude';
 import type { Bottle } from '@/types/database.types';
 import { useRecipeSlugLookup } from '@/features/recipes/hooks/useRecipes';
 import { useAdaptByName } from '../hooks/useAdaptByName';
+import { CopyButton } from '@/components/ui/CopyButton';
+import { formatAdaptedRecipeText, recipeUrl } from '@/lib/recipe-text';
 
 interface SuggestionCardProps {
   suggestion: SuggestionResult;
@@ -88,14 +90,27 @@ export function SuggestionCard({ suggestion, onMakeThis, bottles }: SuggestionCa
         </div>
       )}
 
-      {/* Expand/collapse recipe */}
-      <button
-        onClick={handleExpand}
-        className="mt-3 flex items-center gap-1.5 text-xs font-medium text-text-secondary hover:text-text-primary"
-      >
-        {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-        {expanded ? 'Hide recipe' : 'Show recipe'}
-      </button>
+      {/* Expand/collapse recipe, plus Copy once a recipe is showing */}
+      <div className="mt-3 flex items-center justify-between">
+        <button
+          onClick={handleExpand}
+          className="flex items-center gap-1.5 text-xs font-medium text-text-secondary hover:text-text-primary"
+        >
+          {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+          {expanded ? 'Hide recipe' : 'Show recipe'}
+        </button>
+        {expanded && recipe && (
+          <CopyButton
+            variant="text"
+            label="Copy recipe"
+            getText={() => formatAdaptedRecipeText(
+              suggestion.recipe_name,
+              recipe,
+              librarySlug ? recipeUrl(librarySlug, window.location.origin) : undefined,
+            )}
+          />
+        )}
+      </div>
 
       {/* Phase-2 loading state */}
       {expanded && recipeLoading && !recipe && (

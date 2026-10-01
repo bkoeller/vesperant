@@ -9,6 +9,8 @@ import { useCreateLog } from '@/features/cocktail-log/hooks/useCocktailLog';
 import { LogForm } from '@/features/cocktail-log/components/LogForm';
 import { METHOD_LABELS } from '../recipes.types';
 import type { IngredientRole } from '@/types/database.types';
+import { CopyButton } from '@/components/ui/CopyButton';
+import { formatAdaptedRecipeText, formatQuantity, formatRecipeText, recipeUrl } from '@/lib/recipe-text';
 
 const ROLE_LABELS: Record<IngredientRole, string> = {
   base: 'Base',
@@ -22,18 +24,6 @@ const ROLE_LABELS: Record<IngredientRole, string> = {
   rinse: 'Rinse',
   other: '',
 };
-
-function formatQuantity(qty: number | null, unit: string | null): string {
-  if (!qty && !unit) return '';
-  if (!qty) return unit ?? '';
-  const fractions: Record<number, string> = {
-    0.25: '\u00BC', 0.33: '\u2153', 0.5: '\u00BD',
-    0.67: '\u2154', 0.75: '\u00BE', 1.5: '1\u00BD',
-    2.5: '2\u00BD',
-  };
-  const display = fractions[qty] ?? qty.toString();
-  return unit ? `${display} ${unit}` : display;
-}
 
 export function RecipeDetailPage() {
   const { slug } = useParams({ from: '/recipes/$slug' });
@@ -119,25 +109,31 @@ export function RecipeDetailPage() {
       <div>
         <div className="flex items-start justify-between gap-3">
           <h1 className="text-4xl font-semibold tracking-tight">{recipe.name}</h1>
-          {ownsRecipe && (
-            <div className="flex flex-shrink-0 gap-1 pt-1">
-              <Link
-                to="/recipes/$slug/edit"
-                params={{ slug: recipe.slug }}
-                className="rounded-button p-2 text-text-tertiary no-underline transition-colors hover:bg-bg-hover hover:text-text-primary"
-                aria-label="Edit recipe"
-              >
-                <Pencil size={16} />
-              </Link>
-              <button
-                onClick={() => setConfirmDelete(true)}
-                className="rounded-button p-2 text-text-tertiary transition-colors hover:bg-bg-hover hover:text-error"
-                aria-label="Delete recipe"
-              >
-                <Trash2 size={16} />
-              </button>
-            </div>
-          )}
+          <div className="flex flex-shrink-0 gap-1 pt-1">
+            <CopyButton
+              label="Copy recipe"
+              getText={() => formatRecipeText(recipe, recipeUrl(recipe.slug, window.location.origin))}
+            />
+            {ownsRecipe && (
+              <>
+                <Link
+                  to="/recipes/$slug/edit"
+                  params={{ slug: recipe.slug }}
+                  className="rounded-button p-2 text-text-tertiary no-underline transition-colors hover:bg-bg-hover hover:text-text-primary"
+                  aria-label="Edit recipe"
+                >
+                  <Pencil size={16} />
+                </Link>
+                <button
+                  onClick={() => setConfirmDelete(true)}
+                  className="rounded-button p-2 text-text-tertiary transition-colors hover:bg-bg-hover hover:text-error"
+                  aria-label="Delete recipe"
+                >
+                  <Trash2 size={16} />
+                </button>
+              </>
+            )}
+          </div>
         </div>
         {ownsRecipe && (
           <span className="mt-1 inline-block rounded-pill bg-accent-gold/10 px-2 py-0.5 text-xs font-medium text-accent-gold">
@@ -261,12 +257,19 @@ export function RecipeDetailPage() {
               <Wand2 size={18} />
               Your Build
             </h2>
-            <button
-              onClick={reset}
-              className="text-xs text-text-tertiary hover:text-text-secondary"
-            >
-              Dismiss
-            </button>
+            <div className="flex items-center gap-4">
+              <CopyButton
+                variant="text"
+                label="Copy your build"
+                getText={() => formatAdaptedRecipeText(recipe.name, adapted, recipeUrl(recipe.slug, window.location.origin))}
+              />
+              <button
+                onClick={reset}
+                className="text-xs text-text-tertiary hover:text-text-secondary"
+              >
+                Dismiss
+              </button>
+            </div>
           </div>
 
           {/* Adapted ingredients */}

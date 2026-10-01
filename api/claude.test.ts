@@ -35,10 +35,6 @@ function buildUsageSelectBuilder() {
   return builder;
 }
 
-function buildUsageInsertBuilder() {
-  return { insert: mockUsageInsert };
-}
-
 vi.mock('@supabase/supabase-js', () => ({
   createClient: vi.fn(() => ({
     auth: { getUser: mockGetUser },

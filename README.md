@@ -116,9 +116,10 @@ Every allowlisted user can let an AI agent read their own Vesperant data over [M
 2. Copy the **Connect Claude Code** command it shows. The token is displayed only once; Vesperant stores just a hash of it.
 3. Run the command in a terminal:
    ```bash
-   claude mcp add --transport http vesperant https://YOUR-DEPLOYMENT/api/mcp \
+   claude mcp add --scope user --transport http vesperant https://YOUR-DEPLOYMENT/api/mcp \
      --header "Authorization: Bearer vsp_..."
    ```
+   `--scope user` makes Vesperant available in every Claude Code session on that machine; drop it to limit it to the current folder.
 4. Ask Claude things like *"What can I make tonight with what I have?"* or *"Which cocktails have I rated 5 stars?"*
 
 The endpoint is **read-only** and every tool is scoped to the token owner: other users' bars, recipes, and history are never visible. Available tools: `list_bottles`, `search_recipes`, `get_recipe`, `whats_makeable`, `cocktail_history`, `suggestion_history`. Revoke a token from the same panel at any time; removing someone from the allowlist also disables their tokens.

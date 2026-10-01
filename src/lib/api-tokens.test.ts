@@ -21,7 +21,7 @@ describe('api tokens', () => {
 
   it('builds the Claude Code connect command', () => {
     expect(claudeMcpAddCommand('https://vesperant.vercel.app/', 'vsp_x')).toBe(
-      'claude mcp add --transport http vesperant https://vesperant.vercel.app/api/mcp --header "Authorization: Bearer vsp_x"',
+      'claude mcp add --scope user --transport http vesperant https://vesperant.vercel.app/api/mcp --header "Authorization: Bearer vsp_x"',
     );
   });
 });

@@ -48,7 +48,7 @@ test.describe('Agent access', () => {
 
     await page.getByRole('button', { name: 'Copy command' }).click();
     expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
-      `claude mcp add --transport http vesperant ${baseURL}/api/mcp --header "Authorization: Bearer ${token}"`,
+      `claude mcp add --scope user --transport http vesperant ${baseURL}/api/mcp --header "Authorization: Bearer ${token}"`,
     );
 
     await page.getByRole('button', { name: 'Done' }).click();

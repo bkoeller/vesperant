@@ -28,7 +28,11 @@ export function tokenDisplayPrefix(token: string): string {
   return token.slice(0, DISPLAY_PREFIX_LENGTH);
 }
 
-/** The command a user pastes into a terminal to connect Claude Code. */
+/**
+ * The command a user pastes into a terminal to connect Claude Code. User
+ * scope makes the server available in every directory, not just the one the
+ * command was run in.
+ */
 export function claudeMcpAddCommand(origin: string, token: string): string {
-  return `claude mcp add --transport http vesperant ${origin.replace(/\/$/, '')}/api/mcp --header "Authorization: Bearer ${token}"`;
+  return `claude mcp add --scope user --transport http vesperant ${origin.replace(/\/$/, '')}/api/mcp --header "Authorization: Bearer ${token}"`;
 }

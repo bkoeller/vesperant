@@ -133,7 +133,7 @@ export interface Suggestion {
 // Simplified Database type — uses Record<string, unknown> for Insert/Update
 // to avoid fighting with Supabase's generic constraints.
 // The actual type safety comes from our service layer functions.
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+ 
 export interface Database {
   public: {
     Tables: {

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from '@tanstack/react-router';
 import { ArrowLeft, Plus, Trash2, GripVertical } from 'lucide-react';
 import { useRecipeBySlug, useCreateRecipe, useUpdateRecipe } from '../hooks/useRecipes';
@@ -27,61 +27,82 @@ interface Props {
   mode: 'new' | 'edit';
 }
 
+type ExistingRecipe = NonNullable<ReturnType<typeof useRecipeBySlug>['data']>;
+
 export function RecipeFormPage({ mode }: Props) {
-  const navigate = useNavigate();
   const { user } = useAuth();
   const params = useParams({ strict: false }) as { slug?: string };
   const editSlug = mode === 'edit' ? params.slug : undefined;
   const { data: existing, isLoading: loadingExisting } = useRecipeBySlug(editSlug ?? '');
+
+  const ownsRecipe = mode === 'new' || (existing?.user_id != null && existing.user_id === user?.id);
+
+  if (mode === 'edit' && loadingExisting) {
+    return (
+      <div className="flex flex-col items-center gap-4 pt-20">
+        <div className="h-1 w-16 animate-pulse rounded-full bg-accent-gold-dim" />
+      </div>
+    );
+  }
+
+  if (mode === 'edit' && existing && !ownsRecipe) {
+    return (
+      <div className="flex flex-col items-center gap-4 pt-12 text-center">
+        <p className="text-text-secondary">You can only edit your own recipes.</p>
+        <Link to="/recipes/$slug" params={{ slug: existing.slug }} className="text-sm text-accent-gold no-underline hover:text-accent-amber">
+          Back to recipe
+        </Link>
+      </div>
+    );
+  }
+
+  // Keyed on the recipe id so the form initializes from the loaded recipe
+  // once, and a background refetch doesn't clobber in-progress edits.
+  const recipe = mode === 'edit' ? existing : undefined;
+  return <RecipeForm key={recipe?.id ?? 'new'} mode={mode} existing={recipe} />;
+}
+
+function splitTags(tags: string[] | null | undefined) {
+  const known = new Set<string>(FILTER_TAGS.map(t => t.value));
+  const knownSelected = new Set<string>();
+  const customs: string[] = [];
+  for (const t of tags ?? []) {
+    if (known.has(t)) knownSelected.add(t);
+    else customs.push(t);
+  }
+  return { knownSelected, customs };
+}
+
+function RecipeForm({ mode, existing }: Props & { existing?: ExistingRecipe }) {
+  const navigate = useNavigate();
   const createRecipe = useCreateRecipe();
   const updateRecipe = useUpdateRecipe();
 
-  const [name, setName] = useState('');
-  const [aliases, setAliases] = useState('');
-  const [description, setDescription] = useState('');
-  const [history, setHistory] = useState('');
-  const [method, setMethod] = useState<CocktailMethod>('stir');
-  const [glassware, setGlassware] = useState('');
-  const [garnish, setGarnish] = useState('');
-  const [tags, setTags] = useState<Set<string>>(new Set());
-  const [customTags, setCustomTags] = useState('');
-  const [rows, setRows] = useState<IngredientRow[]>([newRow()]);
+  const [name, setName] = useState(existing?.name ?? '');
+  const [aliases, setAliases] = useState(existing?.aliases?.join(', ') ?? '');
+  const [description, setDescription] = useState(existing?.description ?? '');
+  const [history, setHistory] = useState(existing?.history ?? '');
+  const [method, setMethod] = useState<CocktailMethod>(existing?.method ?? 'stir');
+  const [glassware, setGlassware] = useState(existing?.glassware ?? '');
+  const [garnish, setGarnish] = useState(existing?.garnish ?? '');
+  const [tags, setTags] = useState<Set<string>>(() => splitTags(existing?.tags).knownSelected);
+  const [customTags, setCustomTags] = useState(() => splitTags(existing?.tags).customs.join(', '));
+  const [rows, setRows] = useState<IngredientRow[]>(() =>
+    existing
+      ? (existing.recipe_ingredients ?? []).map(ing => ({
+          key: ing.id,
+          ingredient_name: ing.ingredient_name,
+          ingredient_category: ing.ingredient_category,
+          quantity: ing.quantity,
+          unit: ing.unit,
+          role: ing.role,
+          optional: ing.optional,
+          notes: ing.notes,
+        }))
+      : [newRow()],
+  );
   const [submitError, setSubmitError] = useState<string | null>(null);
 
-  // Hydrate when editing
-  useEffect(() => {
-    if (mode !== 'edit' || !existing) return;
-    setName(existing.name);
-    setAliases(existing.aliases?.join(', ') ?? '');
-    setDescription(existing.description ?? '');
-    setHistory(existing.history ?? '');
-    setMethod(existing.method);
-    setGlassware(existing.glassware ?? '');
-    setGarnish(existing.garnish ?? '');
-    const known = new Set<string>(FILTER_TAGS.map(t => t.value));
-    const knownSelected = new Set<string>();
-    const customs: string[] = [];
-    for (const t of existing.tags ?? []) {
-      if (known.has(t)) knownSelected.add(t);
-      else customs.push(t);
-    }
-    setTags(knownSelected);
-    setCustomTags(customs.join(', '));
-    setRows(
-      (existing.recipe_ingredients ?? []).map(ing => ({
-        key: ing.id,
-        ingredient_name: ing.ingredient_name,
-        ingredient_category: ing.ingredient_category,
-        quantity: ing.quantity,
-        unit: ing.unit,
-        role: ing.role,
-        optional: ing.optional,
-        notes: ing.notes,
-      })),
-    );
-  }, [mode, existing]);
-
-  const ownsRecipe = mode === 'new' || (existing?.user_id != null && existing.user_id === user?.id);
   const canSubmit = useMemo(
     () => name.trim().length > 0 && rows.some(r => r.ingredient_name.trim().length > 0),
     [name, rows],
@@ -152,25 +173,6 @@ export function RecipeFormPage({ mode }: Props) {
       setSubmitError((e as Error).message);
     }
   };
-
-  if (mode === 'edit' && loadingExisting) {
-    return (
-      <div className="flex flex-col items-center gap-4 pt-20">
-        <div className="h-1 w-16 animate-pulse rounded-full bg-accent-gold-dim" />
-      </div>
-    );
-  }
-
-  if (mode === 'edit' && existing && !ownsRecipe) {
-    return (
-      <div className="flex flex-col items-center gap-4 pt-12 text-center">
-        <p className="text-text-secondary">You can only edit your own recipes.</p>
-        <Link to="/recipes/$slug" params={{ slug: existing.slug }} className="text-sm text-accent-gold no-underline hover:text-accent-amber">
-          Back to recipe
-        </Link>
-      </div>
-    );
-  }
 
   const submitting = createRecipe.isPending || updateRecipe.isPending;
 

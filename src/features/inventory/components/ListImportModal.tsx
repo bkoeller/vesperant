@@ -34,7 +34,7 @@ const VALID_CATEGORIES = new Set<string>([
 
 const VALID_TIERS = new Set<string>(['budget', 'standard', 'premium', 'luxury']);
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 function parseBottleResponse(raw: string): IdentifiedBottle[] {
   let jsonStr = raw.trim();
   if (jsonStr.startsWith('```')) {

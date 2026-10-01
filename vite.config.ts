@@ -2,14 +2,14 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { VitePWA } from 'vite-plugin-pwa';
-import { claudeProxyPlugin } from './server/claude-proxy';
+import { apiDevPlugin } from './server/api-dev';
 import path from 'path';
 
 export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
-    claudeProxyPlugin(),
+    apiDevPlugin(),
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'icons/*.png'],

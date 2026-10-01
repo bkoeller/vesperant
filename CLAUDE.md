@@ -29,8 +29,8 @@ CI (`.github/workflows/`) runs the same plus Playwright smoke tests.
 
 ## Local dev
 
-- `npm run dev` serves `/api/claude` by running the real `api/claude.ts`
-  handler in-process (`server/claude-proxy.ts`). It needs `ANTHROPIC_API_KEY`
+- `npm run dev` serves `/api/<name>` by running the real `api/<name>.ts`
+  handler in-process (`server/api-dev.ts`). It needs `ANTHROPIC_API_KEY`
   and `SUPABASE_SERVICE_ROLE_KEY` in `.env.local`; they're sensitive in Vercel,
   so `vercel env pull` won't fetch them.
 - Local dev talks to the production Supabase project and logs to `claude_usage`.
@@ -46,6 +46,11 @@ CI (`.github/workflows/`) runs the same plus Playwright smoke tests.
   Don't loosen it — it prevents the "description and recipe disagree" bug.
 - **Repo came from Windows via OneDrive.** `core.autocrlf=input` is set; watch
   for CRLF-only diffs. If `node_modules` has `win32` binaries, reinstall with `npm ci`.
+
+- **`/api/mcp` runs as the service role (RLS bypassed).** Every query in
+  `api/_lib/mcp-tools.ts` must scope to `userId` explicitly; `api/mcp.test.ts`
+  holds two users' data and fails on any leak. Keep new tools read-only unless
+  the user decides otherwise.
 
 ## Conventions
 

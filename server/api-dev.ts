@@ -1,20 +1,22 @@
 /**
- * Vite dev middleware that serves /api/claude by running the real Vercel
- * handler (api/claude.ts), so local dev exercises the same auth gate,
- * allowlist check, daily cap, and streaming path as production.
+ * Vite dev middleware that serves /api/<name> by running the real Vercel
+ * handler in api/<name>.ts, so local dev exercises the same auth gates,
+ * allowlist checks, and streaming paths as production.
  *
  * The handler reads server-only secrets from process.env at module load.
  * Put ANTHROPIC_API_KEY and SUPABASE_SERVICE_ROLE_KEY in .env.local — Vercel
  * marks them sensitive, so `vercel env pull` won't fetch them.
  */
+import { existsSync } from 'node:fs';
+import path from 'node:path';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { loadEnv, type Plugin } from 'vite';
 
 type Handler = (req: unknown, res: unknown) => Promise<unknown>;
 
-export function claudeProxyPlugin(): Plugin {
+export function apiDevPlugin(): Plugin {
   return {
-    name: 'claude-proxy',
+    name: 'api-dev',
     configureServer(server) {
       // Expose every .env* var (not just VITE_*) to the handler.
       const env = loadEnv(server.config.mode, server.config.root, '');
@@ -22,7 +24,14 @@ export function claudeProxyPlugin(): Plugin {
         process.env[key] ??= value;
       }
 
-      server.middlewares.use('/api/claude', async (req: IncomingMessage, res: ServerResponse) => {
+      server.middlewares.use('/api', async (req: IncomingMessage, res: ServerResponse, next: () => void) => {
+        // req.url is relative to the mount point, e.g. "/claude?x=1".
+        const name = (req.url ?? '').split('?')[0].replace(/^\/+|\/+$/g, '');
+        const file = `/api/${name}.ts`;
+        if (!/^[a-z][a-z0-9-]*$/.test(name) || !existsSync(path.join(server.config.root, file))) {
+          return next();
+        }
+
         let raw = '';
         for await (const chunk of req) {
           raw += chunk;
@@ -44,7 +53,7 @@ export function claudeProxyPlugin(): Plugin {
 
         try {
           // ssrLoadModule compiles the TS and picks up edits without a restart.
-          const mod = await server.ssrLoadModule('/api/claude.ts');
+          const mod = await server.ssrLoadModule(file);
           await (mod.default as Handler)(vReq, vRes);
         } catch (err) {
           if (!res.headersSent) {

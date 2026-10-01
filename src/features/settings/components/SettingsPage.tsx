@@ -4,6 +4,7 @@ import { useProfile } from '@/features/auth/hooks/useProfile';
 import { AllowedUsersPanel } from './AllowedUsersPanel';
 import { RecipePromotionPanel } from './RecipePromotionPanel';
 import { DataExportPanel } from './DataExportPanel';
+import { AgentAccessPanel } from './AgentAccessPanel';
 
 export function SettingsPage() {
   const { user, signOut } = useAuth();
@@ -25,6 +26,9 @@ export function SettingsPage() {
 
         {/* Data export */}
         <DataExportPanel />
+
+        {/* Agent access (personal API tokens for /api/mcp) */}
+        <AgentAccessPanel />
 
         {/* Location */}
         <div className="rounded-card bg-bg-surface p-4">

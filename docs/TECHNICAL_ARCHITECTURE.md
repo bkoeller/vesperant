@@ -526,6 +526,25 @@ Each serverless function:
 - Returns structured JSON, not raw LLM text
 - Has a timeout of 30s (Vercel Hobby) or 60s (Pro)
 
+### 4.3.1 Agent Access: `/api/mcp`
+
+A read-only [MCP](https://modelcontextprotocol.io) server that lets AI agents read one user's data. See PRD §5.10 for the product requirements.
+
+```
+Agent (Claude Code)  --POST /api/mcp, Authorization: Bearer vsp_...-->  api/mcp.ts
+                                        |
+                                        ├── Shape check (vsp_ + 43 base64url chars)
+                                        ├── SHA-256 → look up api_tokens.token_hash → user_id
+                                        ├── Re-check allowed_emails for that user's email
+                                        ├── Stamp api_tokens.last_used_at
+                                        └── Fresh McpServer + StreamableHTTPServerTransport
+                                              (stateless, enableJsonResponse) → tools
+```
+
+- **Files:** `api/mcp.ts` (auth gate + transport), `api/_lib/mcp-tools.ts` (tools), `api/_lib/api-token.ts` (server hashing), `src/lib/api-tokens.ts` (browser token minting + hashing), `src/features/settings/components/AgentAccessPanel.tsx`.
+- **Scoping:** the function uses the service role, which bypasses RLS, so each tool filters explicitly: `.eq('user_id', userId)` on user tables, and `user_id IS NULL OR user_id = userId` on recipes. `get_makeable_recipes` is `SECURITY INVOKER`, so under the service role it spans every user's custom recipes; `whats_makeable` intersects its results with the recipes the user can see. `api/mcp.test.ts` runs the real handler and MCP client against a fake PostgREST holding two users' data and fails if any tool leaks.
+- **Tokens:** minted in the browser with `crypto.getRandomValues`, hashed with WebCrypto, and inserted under RLS (`api_tokens_insert_own`). The plaintext never reaches the database. Fast SHA-256 is sufficient because tokens carry 256 bits of entropy.
+
 ### 4.4 Structured Data to LLM
 
 Context is passed as a structured JSON block within the system prompt, not as freeform text. Example context payload assembled by `context-builder.ts`:

@@ -11,6 +11,8 @@ Vesperant combines structured inventory management, a canonical cocktail recipe 
 - **Adapt to My Bar** — Claude adapts any recipe to your specific bottles with value and proof awareness.
 - **Tonight Suggestions** — Three contextual archetypes (safe, adventurous, cultural) based on weather, date, holidays, and mood. With progressive refinement ("something lighter", "more bourbon").
 - **Cocktail Journal** — Log what you make with optional ratings, tasting notes, and social context.
+- **Copy recipe** — Copy any recipe (or your adapted build) as clean plain text with a link back, ready to paste into Signal, Notes, or anywhere else.
+- **Agent access (MCP)** — Connect Claude Code (or any MCP client) to your own Vesperant data with a personal, read-only token from Settings.
 - **Multi-user with shared Claude key** — One owner deploys, grants access to a curated allowlist of Gmail accounts, and pays the bill. Each user has their own isolated bar inventory, recipes, and history (Postgres RLS-enforced).
 
 ## Tech Stack
@@ -50,6 +52,8 @@ You run one deployment. Anyone whose Gmail you add to the in-app allowlist can u
    - `supabase/migrations/003_user_recipes.sql`
    - `supabase/migrations/004_multi_user.sql`
    - `supabase/migrations/005_strict_makeable.sql`
+   - `supabase/migrations/006_explicit_grants.sql`
+   - `supabase/migrations/007_api_tokens.sql`
 
    Plus these one-shot policies for recipe seeding (the canonical-recipe import script needs them):
    ```sql
@@ -103,6 +107,23 @@ You run one deployment. Anyone whose Gmail you add to the in-app allowlist can u
 ### Adding more users
 
 Once you're admin, the **Settings → Allowed Users** panel in the app lets you grant access by typing a Gmail address. The added user signs in with Google, gets a clean onboarding flow, and starts with an empty bar. Their data is isolated from yours by Row-Level Security.
+
+### Connecting an AI agent
+
+Every allowlisted user can let an AI agent read their own Vesperant data over [MCP](https://modelcontextprotocol.io):
+
+1. In the app, open **Settings → Agent access**, name a token (e.g. "My laptop"), and click **Create token**.
+2. Copy the **Connect Claude Code** command it shows. The token is displayed only once; Vesperant stores just a hash of it.
+3. Run the command in a terminal:
+   ```bash
+   claude mcp add --transport http vesperant https://YOUR-DEPLOYMENT/api/mcp \
+     --header "Authorization: Bearer vsp_..."
+   ```
+4. Ask Claude things like *"What can I make tonight with what I have?"* or *"Which cocktails have I rated 5 stars?"*
+
+The endpoint is **read-only** and every tool is scoped to the token owner: other users' bars, recipes, and history are never visible. Available tools: `list_bottles`, `search_recipes`, `get_recipe`, `whats_makeable`, `cocktail_history`, `suggestion_history`. Revoke a token from the same panel at any time; removing someone from the allowlist also disables their tokens.
+
+Any MCP client that supports streamable HTTP with a bearer-token header works. Clients that only support OAuth sign-in (such as the claude.ai web and mobile apps' custom connectors) can't connect yet.
 
 ### First-run onboarding
 

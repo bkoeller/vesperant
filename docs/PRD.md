@@ -168,6 +168,22 @@
 - Ends with a full `https://…/recipes/<slug>` link, which receiving apps auto-link. Tonight suggestions that aren't in the library omit the link.
 - Feedback in place: the icon becomes a checkmark ("Copied", announced to screen readers) for two seconds; a clipboard failure shows "Couldn't copy".
 
+### 5.10 Agent Access (MCP)
+
+**Description:** Users can let an AI agent (e.g. Claude Code) read their own Vesperant data, so they can ask questions like "what can I make tonight?" or "what have I rated highest?" from the agent.
+
+**Requirements:**
+- Available to every allowlisted user from **Settings → Agent access**. Each user's tokens see only that user's data.
+- Users create named personal access tokens (`vsp_` + 256 random bits). The plaintext token is generated in the browser and shown once, alongside a ready-to-run `claude mcp add` command with copy buttons. Only a SHA-256 hash and a 10-character display prefix are stored (`api_tokens`, migration 007).
+- The token list shows name, prefix, created date, and last-used date; tokens can be revoked (deleted) at any time.
+- `POST /api/mcp` is a stateless MCP server (streamable HTTP, JSON responses) with six **read-only** tools: `list_bottles`, `search_recipes`, `get_recipe`, `whats_makeable`, `cocktail_history`, `suggestion_history`.
+- Every request re-checks the allowlist, so revoking a user's access also disables their tokens. A successful request stamps `last_used_at`.
+- MCP calls don't count toward the daily Claude request cap (they don't call Claude).
+
+**Out of scope (current):**
+- Write tools (add bottles, log cocktails). Read-only until real usage shows which writes are worth it.
+- OAuth sign-in, which claude.ai's web and mobile custom connectors require. Tokens work with Claude Code and other header-capable MCP clients.
+
 ### 5.7 Multi-User Access Management *(new in v2.0)*
 
 **Description:** The owner curates who can use the deployed instance.

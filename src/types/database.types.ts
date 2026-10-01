@@ -36,6 +36,16 @@ export interface AllowedEmail {
   is_active: boolean;
 }
 
+/** A personal API token for /api/mcp. The secret itself is never stored. */
+export interface ApiToken {
+  id: string;
+  user_id: string;
+  name: string;
+  token_prefix: string;
+  created_at: string;
+  last_used_at: string | null;
+}
+
 export interface Bottle {
   id: string;
   user_id: string;

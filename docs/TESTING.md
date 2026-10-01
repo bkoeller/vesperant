@@ -47,13 +47,16 @@ Wider tiers run more, faster. Top tier catches what the lower tiers can't see.
 | `src/lib/prompts.ts` (phase-2 adapt-by-name) | `prompts.test.ts` | 9 | System prompt declares Required Ingredients as binding and forbids canonical-recipe overrides; user prompt renders the BINDING ingredient block, preserves order, omits it on back-compat, and includes the Promised Build (reasoning) |
 | `useSuggestions` prompt + normalizer | `useSuggestions.test.ts` | 12 | Existing bottle-inventory shape and non-substitution rules; plus phase-1 schema asks for `key_ingredients`, name/recipe coherence rule is present, `normalizeSuggestion` preserves and defensively filters the binding list |
 | `api/claude.ts` (auth gate) | `api/claude.test.ts` | 9 | Every gate path: 405 wrong method, 500 missing env, 401 no token, 401 bad JWT, 403 not allowlisted, 403 no email, 429 over cap, 200 happy path with usage logging, error propagation without leaking the API key |
+| `api/mcp.ts` + `api/_lib/mcp-tools.ts` (agent access) | `api/mcp.test.ts` | 15 | Real handler + real MCP client over HTTP against a fake PostgREST holding two users' data. Auth gate: 405, missing/malformed/unknown token 401, de-allowlisted owner 403, success stamps `last_used_at`. Tools: exactly six, all `readOnlyHint`; each returns only the token owner's rows (bottles, custom recipes, history, sessions); `get_recipe` prefers the user's custom slug; `whats_makeable` passes the owner's id and drops other users' recipes |
+| `api/_lib/api-token.ts` | `api-token.test.ts` | 3 | Accepts tokens minted by the browser helper, rejects malformed ones, and hashes identically to WebCrypto |
+| `src/lib/api-tokens.ts` | `api-tokens.test.ts` | 4 | Token shape and uniqueness, known SHA-256 vector, 10-char display prefix, `claude mcp add` command |
 | `AuthGuard` | `AuthGuard.test.tsx` | 3 | Loading splash, LoginScreen render, children render |
 | `src/lib/recipe-text.ts` (copy recipe) | `recipe-text.test.ts` | 9 | Fraction glyphs and missing quantity/unit; URL joining; exact library and adapted layouts; optional/notes markers; garnish fallback; empty sections omitted with no blank-line runs or Markdown; link omitted when absent |
 | `CopyButton` | `CopyButton.test.tsx` | 5 | Writes `getText()` to the clipboard and confirms; text built only on click; text-variant label swap; reverts after 2s; clipboard rejection shows "Couldn't copy" |
 | `RecipeFormPage` | `RecipeFormPage.test.tsx` | 11 | New mode: empty start, Create gating on name + ingredient, trimmed/merged-tag payload with blank rows dropped, save error surfaced. Edit mode: loading state, every field hydrated (known vs custom tags, ingredient order), late-arriving data hydrates, background refetch doesn't clobber edits, update by id + navigate, non-owner and canonical recipes blocked |
 | `SuggestionCard` | `SuggestionCard.test.tsx` | 12 | Three archetype variants, expand/collapse, missing-ingredient warnings, proof warnings, `bottle_from_inventory` substitution, `onMakeThis` callback, and the phase-1→phase-2 wiring that forwards `key_ingredients` to `useAdaptByName.load()` |
 
-**Total: 120 tests, ~1.8s wall time.**
+**Total: 142 tests, ~1.8s wall time.**
 
 ### The phase-1 → phase-2 contract is the highest-value regression coverage
 
@@ -101,6 +104,9 @@ If a future change weakens any of these, the regression surfaces before it reach
 | `authenticated.spec.ts` — phase-2 recipe on expand | ✅ | Expanding a card makes one non-stream call whose prompt carries the BINDING `key_ingredients`, and renders the recipe |
 | `copy-recipe.spec.ts` — library recipe | ✅ | Header copy icon writes the exact plain-text recipe, ending in the full recipe URL, to the real clipboard |
 | `copy-recipe.spec.ts` — Tonight card | ✅ | Copy appears only after expanding; copied text uses inventory bottle names and links to the library recipe |
+| `agent-access.spec.ts` — token list | ✅ | Existing tokens show name, display prefix, and "Never used" |
+| `agent-access.spec.ts` — create token | ✅ | New token shown once; the insert carries only the SHA-256 hash and prefix (never the token); Copy command yields the exact `claude mcp add` line; Done hides the token |
+| `agent-access.spec.ts` — revoke | ✅ | Confirm, then DELETE scoped to `id=eq.<token>` |
 
 ### How authenticated specs work
 

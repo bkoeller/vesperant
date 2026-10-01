@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 import { buildPromotionSystemPrompt, buildPromotionUserPrompt } from '../src/lib/prompts.js';
+import { nameKey, resolvePromotedName } from './_lib/promotion-names.js';
 
 // Promotes off-library cocktail names from the suggestions table into the
 // canonical recipes table. Invoked two ways:
@@ -216,12 +217,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const promotion = parsePromotion(content);
 
-    // ---- 3. Insert canonical recipes (skip slugs that already exist) ----
-    const { data: existingSlugs } = await admin
+    // ---- 3. Insert canonical recipes (skip slugs/names that already exist) ----
+    const { data: existing } = await admin
       .from('recipes')
-      .select('slug')
+      .select('slug, name, aliases')
       .is('user_id', null);
-    const takenSlugs = new Set((existingSlugs ?? []).map((r: { slug: string }) => r.slug));
+    const existingRows = (existing ?? []) as { slug: string; name: string; aliases: string[] | null }[];
+    const takenSlugs = new Set(existingRows.map(r => r.slug));
+    const takenNames = new Set<string>();
+    for (const r of existingRows) {
+      takenNames.add(nameKey(r.name));
+      for (const a of r.aliases ?? []) takenNames.add(nameKey(a));
+    }
 
     let promoted = 0;
     const failures: { name: string; error: string }[] = [];
@@ -237,13 +244,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         continue;
       }
 
+      // Names and aliases must be unique too: the app links suggestions to
+      // recipes by name, so two "Whiskey Sour"s make links ambiguous.
+      const naming = resolvePromotedName(r, takenNames);
+      if (naming.action === 'skip') {
+        promotion.excluded.push({ candidate_name: r.candidate_name, reason: naming.reason });
+        continue;
+      }
+
       const { data: inserted, error: recErr } = await admin
         .from('recipes')
         .insert({
           user_id: null,
-          name: r.name,
+          name: naming.name,
           slug: r.slug,
-          aliases: r.aliases ?? [],
+          aliases: naming.aliases,
           description: r.description,
           history: r.history,
           method: r.method,
@@ -284,6 +299,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       takenSlugs.add(r.slug);
+      takenNames.add(nameKey(naming.name));
+      for (const a of naming.aliases) takenNames.add(nameKey(a));
       promoted++;
     }
 

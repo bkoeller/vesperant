@@ -49,6 +49,7 @@ Wider tiers run more, faster. Top tier catches what the lower tiers can't see.
 | `api/claude.ts` (auth gate) | `api/claude.test.ts` | 9 | Every gate path: 405 wrong method, 500 missing env, 401 no token, 401 bad JWT, 403 not allowlisted, 403 no email, 429 over cap, 200 happy path with usage logging, error propagation without leaking the API key |
 | `api/mcp.ts` + `api/_lib/mcp-tools.ts` (agent access) | `api/mcp.test.ts` | 15 | Real handler + real MCP client over HTTP against a fake PostgREST holding two users' data. Auth gate: 405, missing/malformed/unknown token 401, de-allowlisted owner 403, success stamps `last_used_at`. Tools: exactly six, all `readOnlyHint`; each returns only the token owner's rows (bottles, custom recipes, history, sessions); `get_recipe` prefers the user's custom slug; `whats_makeable` passes the owner's id and drops other users' recipes |
 | `api/_lib/api-token.ts` | `api-token.test.ts` | 3 | Accepts tokens minted by the browser helper, rejects malformed ones, and hashes identically to WebCrypto |
+| `api/_lib/promotion-names.ts` (recipe promotion) | `promotion-names.test.ts` | 5 | New names kept; a returned name already in the library falls back to the suggestion's candidate name ("Whiskey Sour" → "Rye Whiskey Sour"); case/whitespace-insensitive matching against names and aliases; skip when both names are taken; taken, blank, duplicate, or self-referential aliases dropped |
 | `src/lib/api-tokens.ts` | `api-tokens.test.ts` | 4 | Token shape and uniqueness, known SHA-256 vector, 10-char display prefix, `claude mcp add` command |
 | `get_makeable_recipes` (SQL, migration 008) | `supabase/tests/get_makeable_recipes.test.ts` | 7 | Runs the real function in PGlite (in-process Postgres with `unaccent`). `match_words` normalization; liqueur/amaro/vermouth match across accents and word order and via subcategory/spirit_type; identity still enforced (sweet ≠ dry, Drambuie ≠ Cointreau, yellow ≠ green Chartreuse); inactive bottles ignored; pantry categories always available; category match for other spirits; optional ingredients don't count |
 | `AuthGuard` | `AuthGuard.test.tsx` | 3 | Loading splash, LoginScreen render, children render |
@@ -57,7 +58,7 @@ Wider tiers run more, faster. Top tier catches what the lower tiers can't see.
 | `RecipeFormPage` | `RecipeFormPage.test.tsx` | 11 | New mode: empty start, Create gating on name + ingredient, trimmed/merged-tag payload with blank rows dropped, save error surfaced. Edit mode: loading state, every field hydrated (known vs custom tags, ingredient order), late-arriving data hydrates, background refetch doesn't clobber edits, update by id + navigate, non-owner and canonical recipes blocked |
 | `SuggestionCard` | `SuggestionCard.test.tsx` | 12 | Three archetype variants, expand/collapse, missing-ingredient warnings, proof warnings, `bottle_from_inventory` substitution, `onMakeThis` callback, and the phase-1→phase-2 wiring that forwards `key_ingredients` to `useAdaptByName.load()` |
 
-**Total: 149 tests, ~1.8s wall time.**
+**Total: 154 tests, ~1.8s wall time.**
 
 ### The phase-1 → phase-2 contract is the highest-value regression coverage
 

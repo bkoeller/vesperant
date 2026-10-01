@@ -1,8 +1,8 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import { signInAs } from './helpers/auth';
-import { mockSupabaseRest, mockClaude, buildSuggestionsJson } from './helpers/mocks';
+import { mockSupabaseRest, mockClaude, buildSuggestionsJson, buildAdaptedRecipeJson, type ClaudeRequest } from './helpers/mocks';
 
-test.describe.skip('Authenticated flow [WIP — session injection doesn\'t survive supabase-js init; revisit using setSession() post-navigation]', () => {
+test.describe('Authenticated flow', () => {
   test.beforeEach(async ({ page }) => {
     // Bypass Google OAuth by injecting a session before any app code runs.
     await signInAs(page, { email: 'test@example.com' });
@@ -81,7 +81,7 @@ test.describe.skip('Authenticated flow [WIP — session injection doesn\'t survi
   });
 });
 
-test.describe.skip('Admin user [WIP — see above]', () => {
+test.describe('Admin user', () => {
   test.beforeEach(async ({ page }) => {
     await signInAs(page, { email: 'admin@example.com', isAdmin: true });
     await mockSupabaseRest(page, {
@@ -119,7 +119,17 @@ test.describe.skip('Admin user [WIP — see above]', () => {
   });
 });
 
-test.describe.skip('Suggestion flow [WIP — see above]', () => {
+// "Suggest something" is clickable before the bottles query resolves, and
+// clicking early reports an empty inventory. Wait for the bottles fetch.
+async function gotoTonightWithBottles(page: Page) {
+  const bottlesLoaded = page.waitForResponse(/\/rest\/v1\/bottles/);
+  await page.goto('/tonight');
+  await bottlesLoaded;
+}
+
+test.describe('Suggestion flow', () => {
+  let claudeRequests: ClaudeRequest[];
+
   test.beforeEach(async ({ page }) => {
     await signInAs(page, { email: 'test@example.com' });
     await mockSupabaseRest(page, {
@@ -138,11 +148,14 @@ test.describe.skip('Suggestion flow [WIP — see above]', () => {
       suggestions: [],
       allowed_emails: [],
     });
-    await mockClaude(page, buildSuggestionsJson());
+    claudeRequests = await mockClaude(page, {
+      suggestions: buildSuggestionsJson(),
+      recipe: buildAdaptedRecipeJson(),
+    });
   });
 
   test('renders three suggestion cards after clicking Suggest something', async ({ page }) => {
-    await page.goto('/tonight');
+    await gotoTonightWithBottles(page);
     await page.getByRole('button', { name: /Suggest something/i }).click();
 
     // Three cards with the expected names + archetype badges.
@@ -157,5 +170,29 @@ test.describe.skip('Suggestion flow [WIP — see above]', () => {
     // Missing-ingredient warnings render where applicable.
     await expect(page.getByText(/Missing: Honey-ginger syrup/)).toBeVisible();
     await expect(page.getByText(/Missing: Bénédictine/)).toBeVisible();
+  });
+
+  test('expanding a card builds the recipe from the phase-1 key_ingredients', async ({ page }) => {
+    await gotoTonightWithBottles(page);
+    await page.getByRole('button', { name: /Suggest something/i }).click();
+    await expect(page.getByRole('heading', { name: 'Negroni' })).toBeVisible();
+
+    // Phase 1 streamed; no recipe has been requested yet.
+    expect(claudeRequests).toHaveLength(1);
+    expect(claudeRequests[0].stream).toBe(true);
+
+    await page.getByRole('button', { name: 'Show recipe' }).first().click();
+    await expect(page.getByText('Stir with ice, strain over a large cube.')).toBeVisible();
+    await expect(page.getByText('Carpano Antica')).toBeVisible();
+
+    // Phase 2 is a non-stream call that carries the binding ingredient list.
+    expect(claudeRequests).toHaveLength(2);
+    const phase2 = claudeRequests[1];
+    expect(phase2.stream).toBeFalsy();
+    expect(phase2.userPrompt).toContain('Negroni');
+    expect(phase2.userPrompt).toMatch(/Required Ingredients \(BINDING/);
+    for (const ing of ['Hendricks', 'Carpano Antica', 'Campari']) {
+      expect(phase2.userPrompt).toContain(`- ${ing}`);
+    }
   });
 });

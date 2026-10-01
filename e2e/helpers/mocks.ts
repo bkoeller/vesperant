@@ -57,24 +57,69 @@ export async function mockSupabaseRest(
   });
 }
 
+export interface ClaudeRequest {
+  systemPrompt?: string;
+  userPrompt?: string;
+  stream?: boolean;
+  model?: string;
+}
+
 /**
- * Stub /api/claude with a canned suggestion response. Avoids burning
- * real Anthropic credits and keeps tests deterministic.
+ * Stub /api/claude for both Tonight phases. Avoids burning real Anthropic
+ * credits and keeps tests deterministic.
+ *
+ * - Phase 1 (`stream: true`) gets `suggestions` replayed as Anthropic SSE
+ *   text deltas, split into chunks so the client's incremental parser runs.
+ * - Phase 2 and every other non-stream call gets `{ content: recipe }`.
+ *
+ * Returns the captured request bodies so specs can assert on prompts.
  */
 export async function mockClaude(
   page: Page,
-  content: string,
-): Promise<void> {
+  responses: { suggestions: string; recipe?: string },
+): Promise<ClaudeRequest[]> {
+  const requests: ClaudeRequest[] = [];
   await page.route('**/api/claude', async (route: Route) => {
-    await route.fulfill({
+    const body = (route.request().postDataJSON() ?? {}) as ClaudeRequest;
+    requests.push(body);
+
+    if (body.stream) {
+      return route.fulfill({
+        status: 200,
+        contentType: 'text/event-stream; charset=utf-8',
+        body: toAnthropicSse(responses.suggestions),
+      });
+    }
+    return route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify({ content }),
+      body: JSON.stringify({ content: responses.recipe ?? '' }),
     });
   });
+  return requests;
 }
 
-/** Build a JSON suggestion response in the shape useSuggestions expects. */
+function toAnthropicSse(text: string, chunkSize = 80): string {
+  const events: object[] = [
+    { type: 'message_start', message: { usage: { input_tokens: 100 } } },
+    { type: 'content_block_start', index: 0, content_block: { type: 'text', text: '' } },
+  ];
+  for (let i = 0; i < text.length; i += chunkSize) {
+    events.push({
+      type: 'content_block_delta',
+      index: 0,
+      delta: { type: 'text_delta', text: text.slice(i, i + chunkSize) },
+    });
+  }
+  events.push(
+    { type: 'content_block_stop', index: 0 },
+    { type: 'message_delta', delta: { stop_reason: 'end_turn' }, usage: { output_tokens: 200 } },
+    { type: 'message_stop' },
+  );
+  return events.map(e => `event: ${(e as { type: string }).type}\ndata: ${JSON.stringify(e)}\n\n`).join('');
+}
+
+/** Phase-1 response: names, reasoning, and the binding key_ingredients. */
 export function buildSuggestionsJson(): string {
   return JSON.stringify({
     suggestions: [
@@ -83,19 +128,7 @@ export function buildSuggestionsJson(): string {
         recipe_name: 'Negroni',
         recipe_slug: 'negroni',
         reasoning: 'A perfectly balanced bitter aperitif for the moment.',
-        adapted_recipe: {
-          ingredients: [
-            { ingredient_name: 'Gin', bottle_from_inventory: 'Hendricks', quantity: '1', unit: 'oz', notes: null },
-            { ingredient_name: 'Sweet Vermouth', bottle_from_inventory: 'Carpano Antica', quantity: '1', unit: 'oz', notes: null },
-            { ingredient_name: 'Campari', bottle_from_inventory: 'Campari', quantity: '1', unit: 'oz', notes: null },
-          ],
-          method: 'Stir with ice, strain over a large cube.',
-          glassware: 'rocks',
-          garnish: 'Orange peel',
-          proof_warning: null,
-          value_notes: null,
-          variation_notes: null,
-        },
+        key_ingredients: ['Hendricks', 'Carpano Antica', 'Campari'],
         missing_ingredients: [],
       },
       {
@@ -103,19 +136,7 @@ export function buildSuggestionsJson(): string {
         recipe_name: 'Penicillin',
         recipe_slug: 'penicillin',
         reasoning: 'Smoky and complex — a modern classic worth trying.',
-        adapted_recipe: {
-          ingredients: [
-            { ingredient_name: 'Blended Scotch', bottle_from_inventory: 'Famous Grouse', quantity: '2', unit: 'oz', notes: null },
-            { ingredient_name: 'Lemon juice', bottle_from_inventory: null, quantity: '0.75', unit: 'oz', notes: null },
-            { ingredient_name: 'Honey-ginger syrup', bottle_from_inventory: null, quantity: '0.75', unit: 'oz', notes: null },
-          ],
-          method: 'Shake with ice, strain over fresh ice. Float Islay scotch.',
-          glassware: 'rocks',
-          garnish: 'Candied ginger',
-          proof_warning: null,
-          value_notes: null,
-          variation_notes: null,
-        },
+        key_ingredients: ['Blended Scotch', 'Lemon juice', 'Honey-ginger syrup'],
         missing_ingredients: ['Honey-ginger syrup'],
       },
       {
@@ -123,20 +144,26 @@ export function buildSuggestionsJson(): string {
         recipe_name: 'Bobby Burns',
         recipe_slug: 'bobby-burns',
         reasoning: 'A nod to Burns Night — Scotch with sweet vermouth and Bénédictine.',
-        adapted_recipe: {
-          ingredients: [
-            { ingredient_name: 'Scotch', bottle_from_inventory: 'Famous Grouse', quantity: '2', unit: 'oz', notes: null },
-            { ingredient_name: 'Sweet Vermouth', bottle_from_inventory: 'Carpano Antica', quantity: '0.75', unit: 'oz', notes: null },
-          ],
-          method: 'Stir with ice, strain into a coupe.',
-          glassware: 'coupe',
-          garnish: 'Lemon twist',
-          proof_warning: null,
-          value_notes: null,
-          variation_notes: null,
-        },
+        key_ingredients: ['Scotch', 'Carpano Antica', 'Bénédictine'],
         missing_ingredients: ['Bénédictine'],
       },
     ],
+  });
+}
+
+/** Phase-2 response: the adapted recipe for one expanded card. */
+export function buildAdaptedRecipeJson(): string {
+  return JSON.stringify({
+    ingredients: [
+      { ingredient_name: 'Gin', bottle_from_inventory: 'Hendricks', quantity: '1', unit: 'oz', notes: null },
+      { ingredient_name: 'Sweet Vermouth', bottle_from_inventory: 'Carpano Antica', quantity: '1', unit: 'oz', notes: null },
+      { ingredient_name: 'Campari', bottle_from_inventory: 'Campari', quantity: '1', unit: 'oz', notes: null },
+    ],
+    method: 'Stir with ice, strain over a large cube.',
+    glassware: 'rocks',
+    garnish: 'Orange peel',
+    proof_warning: null,
+    value_notes: null,
+    variation_notes: null,
   });
 }

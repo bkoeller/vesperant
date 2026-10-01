@@ -5,10 +5,13 @@ import type { Page } from '@playwright/test';
  * past AuthGuard without going through Google OAuth (which we can't
  * automate against Google's UI). The supabase-js client reads the
  * session from this exact key on init.
+ *
+ * Also marks onboarding complete (Shell gates on a localStorage flag,
+ * not the profile row) unless `onboarded: false` is passed.
  */
 export async function signInAs(
   page: Page,
-  opts: { id?: string; email: string; isAdmin?: boolean } = { email: 'test@example.com' },
+  opts: { id?: string; email: string; isAdmin?: boolean; onboarded?: boolean } = { email: 'test@example.com' },
 ): Promise<void> {
   const userId = opts.id ?? '00000000-0000-0000-0000-000000000001';
   const supabaseUrl = 'https://e2e-stub.supabase.co';
@@ -40,9 +43,10 @@ export async function signInAs(
 
   // Pre-navigation init script — runs before any app code on every page.
   await page.addInitScript(
-    ({ storageKey, session }) => {
+    ({ storageKey, session, onboarded }) => {
       window.localStorage.setItem(storageKey, JSON.stringify(session));
+      if (onboarded) window.localStorage.setItem('vesperant_onboarding_complete', 'true');
     },
-    { storageKey, session },
+    { storageKey, session, onboarded: opts.onboarded ?? true },
   );
 }

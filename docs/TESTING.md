@@ -90,34 +90,28 @@ If a future change weakens any of these, the regression surfaces before it reach
 |---|---|---|
 | `smoke.spec.ts` — login screen renders | ✅ | Vesperant heading + Sign in with Google button visible |
 | `smoke.spec.ts` — no JS errors on load | ✅ | `pageerror` listener captures zero errors after `networkidle` |
-| `authenticated.spec.ts` — Tonight render | ⏭ skipped | (see below) |
-| `authenticated.spec.ts` — tab navigation | ⏭ skipped | |
-| `authenticated.spec.ts` — non-admin Settings | ⏭ skipped | |
-| `authenticated.spec.ts` — admin AllowedUsers panel | ⏭ skipped | |
-| `authenticated.spec.ts` — suggestion flow | ⏭ skipped | |
+| `authenticated.spec.ts` — Tonight render | ✅ | Injected session lands on Tonight with the Suggest button |
+| `authenticated.spec.ts` — tab navigation | ✅ | Inventory and Settings render for a signed-in user |
+| `authenticated.spec.ts` — non-admin Settings | ✅ | Allowed Users panel hidden; account email shown |
+| `authenticated.spec.ts` — admin AllowedUsers panel | ✅ | Panel visible and lists granted emails |
+| `authenticated.spec.ts` — suggestion flow | ✅ | Phase-1 SSE stream renders three cards with archetype badges and missing-ingredient warnings |
+| `authenticated.spec.ts` — phase-2 recipe on expand | ✅ | Expanding a card makes one non-stream call whose prompt carries the BINDING `key_ingredients`, and renders the recipe |
 
-### Why authenticated specs are skipped
+### How authenticated specs work
 
-The plan was to bypass Google OAuth (which Playwright can't script through Google's bot-detection) by pre-injecting a fake Supabase session into `localStorage` via `page.addInitScript()`. The session storage key matches what `@supabase/supabase-js` v2 expects (`sb-{ref}-auth-token`) and the session shape passes `_isValidSession`. Despite that, the running app's `useAuth` doesn't pick the session up — `AuthGuard` still renders `LoginScreen`. Likely cause: a refresh-token round-trip or `userStorage`-related check we haven't pinpointed.
+Google OAuth can't be scripted, so `signInAs` pre-injects a fake Supabase session into `localStorage` (`sb-{ref}-auth-token`) via `page.addInitScript()`; supabase-js picks it up on init. It also sets `vesperant_onboarding_complete`, because `Shell` gates onboarding on that flag rather than the profile row. (These specs were previously skipped on the belief that session injection didn't work. It did; the missing onboarding flag was the real blocker.)
 
-The specs are kept under `test.describe.skip` (rather than deleted) so the test logic, mock helpers, and table-of-contents document the intent for the next iteration.
-
-**Two viable unblock paths:**
-
-1. **Use a real test Supabase project.** Sign in once via the admin API in a global setup, save `storageState` to a JSON file, reuse across tests via Playwright's `storageState` config. Catches RLS bugs as a bonus. Cost: a second Supabase project in CI secrets, periodic cleanup.
-2. **Add a dev-only test hatch.** A `?__test_session=...` query-param the app reads in non-prod builds to mint a session locally. Smaller blast radius (no infrastructure), but requires app-side code that has to be carefully gated.
-
-Recommend #1 when the regression risk on authenticated flows justifies the operational cost — until then, the layer-1 component tests cover most of the same ground.
+All Supabase and Claude traffic is intercepted, so these specs exercise the UI against canned data. They don't cover RLS or the real auth gate; see "Real-stack E2E" below.
 
 ### Helpers
 
-- **`e2e/helpers/auth.ts`**: `signInAs(page, { email, isAdmin })` — pre-injects a session into `localStorage` (currently doesn't work; see above).
-- **`e2e/helpers/mocks.ts`**: `mockSupabaseRest(page, tablesByName)` and `mockClaude(page, content)` — Playwright route interception. `buildSuggestionsJson()` returns a 3-archetype canned response.
+- **`e2e/helpers/auth.ts`**: `signInAs(page, { email, isAdmin, onboarded })` — pre-injects a session into `localStorage` and marks onboarding complete (pass `onboarded: false` to test onboarding).
+- **`e2e/helpers/mocks.ts`**: `mockSupabaseRest(page, tablesByName)` and `mockClaude(page, { suggestions, recipe })` — Playwright route interception. `mockClaude` replays `suggestions` as Anthropic SSE for streaming calls, returns `recipe` for non-stream calls, and returns the captured request bodies. `buildSuggestionsJson()` (phase 1) and `buildAdaptedRecipeJson()` (phase 2) supply canned responses.
 
 ### Adding a new E2E test
 
 1. Create `e2e/<feature>.spec.ts`.
-2. Use `signInAs` + `mockSupabaseRest` + `mockClaude` from helpers (once auth injection is unblocked).
+2. Use `signInAs` + `mockSupabaseRest` + `mockClaude` from helpers. If the test clicks something that depends on loaded data, wait for that request first (see `gotoTonightWithBottles`).
 3. Prefer `getByRole`, `getByText` over CSS selectors — they're more resilient to refactors.
 4. Run `npm run test:e2e`. CI picks it up.
 
@@ -125,7 +119,7 @@ Recommend #1 when the regression risk on authenticated flows justifies the opera
 
 Two GitHub Actions workflows in `.github/workflows/`:
 
-- **`test.yml`** — runs `tsc -b`, `npm test`, `npm run build` on Ubuntu 20+. Concurrency-cancelled per ref.
+- **`test.yml`** — runs `npm run lint`, `tsc -b`, `npm test`, `npm run build` on Ubuntu 20+. Concurrency-cancelled per ref.
 - **`e2e.yml`** — runs `npx playwright test` with chromium installed. Uploads the `playwright-report/` as a build artifact on failure.
 
 Both run on every push to `main` and every PR. Build a green check before merging.
@@ -135,11 +129,11 @@ Both run on every push to `main` and every PR. Build a green check before mergin
 - **Visual regression testing** (Percy / Chromatic) — overkill for one developer; flaky on transient pixel diffs.
 - **100% coverage** — chase value, not a number. Coverage report is available via `npm run test:coverage` but isn't a CI gate.
 - **Mutation testing** — even more premature.
-- **Real-stack E2E** — see the "Why authenticated specs are skipped" section above.
+- **Real-stack E2E** — authenticated specs run against mocks. Covering RLS and the real auth gate would need a test Supabase project with a global-setup sign-in and saved `storageState`.
 - **pgTAP / SQL tests** — RLS is enforced by Postgres regardless of client behavior, so SQL-level tests are the right home for that. Worth adding when an RLS regression slips past code review.
 
 ## Phase 3 follow-up (when motivated)
 
-- Unblock authenticated E2E via real test Supabase project, then unskip the WIP specs.
+- Real-stack E2E against a test Supabase project (RLS + auth gate).
 - Add pgTAP tests for the RLS policies introduced in `004_multi_user.sql` (allowed_emails admin-only, claude_usage own-row read).
 - Coverage CI step (informational, not a gate).

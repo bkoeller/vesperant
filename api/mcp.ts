@@ -1,8 +1,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
-import { hashApiToken, looksLikeApiToken } from './_lib/api-token';
-import { createVesperantMcpServer } from './_lib/mcp-tools';
+import { hashApiToken, looksLikeApiToken } from './_lib/api-token.js';
+import { createVesperantMcpServer } from './_lib/mcp-tools.js';
 
 // Read-only MCP endpoint for AI agents (e.g. Claude Code). Authenticated by
 // a personal API token from Settings → Agent access; every tool is scoped to

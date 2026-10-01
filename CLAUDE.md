@@ -39,6 +39,10 @@ CI (`.github/workflows/`) runs the same plus Playwright smoke tests.
 
 ## Gotchas
 
+- **Relative imports in `api/` need a `.js` extension** (`./_lib/x.js`,
+  `../src/lib/prompts.js`). Vercel runs functions as native ESM, which
+  requires it; Vite and Vitest resolve extensionless imports, so local dev and
+  tests won't catch a missing one. Probe the deployed function after adding one.
 - **Model IDs are set in two places:** `api/claude.ts` (default) and
   `src/lib/claude.ts` (vision). Change them together.
 - **Phase-1 → phase-2 suggestion contract:** phase 1's `key_ingredients` is

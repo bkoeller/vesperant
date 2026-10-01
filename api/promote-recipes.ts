@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
-import { buildPromotionSystemPrompt, buildPromotionUserPrompt } from '../src/lib/prompts';
+import { buildPromotionSystemPrompt, buildPromotionUserPrompt } from '../src/lib/prompts.js';
 
 // Promotes off-library cocktail names from the suggestions table into the
 // canonical recipes table. Invoked two ways:

@@ -16,6 +16,8 @@ Working notes for Claude Code. Product and architecture live in `docs/` — read
 - The Supabase CLI is **not** linked. For schema changes, add the next numbered
   file in `supabase/migrations/` and hand the user the SQL to run in the
   Supabase SQL Editor.
+- SQL functions are tested in-process with PGlite (`supabase/tests/`). When a
+  migration replaces a function, point its test at the new migration file.
 - Per-user data isolation is enforced by Postgres RLS. New tables need RLS
   policies plus explicit grants (see `006_explicit_grants.sql`).
 

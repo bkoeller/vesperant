@@ -32,7 +32,7 @@ Wider tiers run more, faster. Top tier catches what the lower tiers can't see.
 
 ## Layer 1 — Vitest (unit + integration)
 
-**Location:** `src/**/*.{test,spec}.{ts,tsx}` and `api/**/*.{test,spec}.ts`
+**Location:** `src/**/*.{test,spec}.{ts,tsx}`, `api/**/*.{test,spec}.ts`, and `supabase/**/*.test.ts` (SQL functions, via PGlite)
 **Runner:** `vitest run` (jsdom environment)
 **Setup:** `src/test/setup.ts` — registers `@testing-library/jest-dom` matchers and runs `cleanup()` after each test.
 
@@ -50,13 +50,14 @@ Wider tiers run more, faster. Top tier catches what the lower tiers can't see.
 | `api/mcp.ts` + `api/_lib/mcp-tools.ts` (agent access) | `api/mcp.test.ts` | 15 | Real handler + real MCP client over HTTP against a fake PostgREST holding two users' data. Auth gate: 405, missing/malformed/unknown token 401, de-allowlisted owner 403, success stamps `last_used_at`. Tools: exactly six, all `readOnlyHint`; each returns only the token owner's rows (bottles, custom recipes, history, sessions); `get_recipe` prefers the user's custom slug; `whats_makeable` passes the owner's id and drops other users' recipes |
 | `api/_lib/api-token.ts` | `api-token.test.ts` | 3 | Accepts tokens minted by the browser helper, rejects malformed ones, and hashes identically to WebCrypto |
 | `src/lib/api-tokens.ts` | `api-tokens.test.ts` | 4 | Token shape and uniqueness, known SHA-256 vector, 10-char display prefix, `claude mcp add` command |
+| `get_makeable_recipes` (SQL, migration 008) | `supabase/tests/get_makeable_recipes.test.ts` | 7 | Runs the real function in PGlite (in-process Postgres with `unaccent`). `match_words` normalization; liqueur/amaro/vermouth match across accents and word order and via subcategory/spirit_type; identity still enforced (sweet ≠ dry, Drambuie ≠ Cointreau, yellow ≠ green Chartreuse); inactive bottles ignored; pantry categories always available; category match for other spirits; optional ingredients don't count |
 | `AuthGuard` | `AuthGuard.test.tsx` | 3 | Loading splash, LoginScreen render, children render |
 | `src/lib/recipe-text.ts` (copy recipe) | `recipe-text.test.ts` | 9 | Fraction glyphs and missing quantity/unit; URL joining; exact library and adapted layouts; optional/notes markers; garnish fallback; empty sections omitted with no blank-line runs or Markdown; link omitted when absent |
 | `CopyButton` | `CopyButton.test.tsx` | 5 | Writes `getText()` to the clipboard and confirms; text built only on click; text-variant label swap; reverts after 2s; clipboard rejection shows "Couldn't copy" |
 | `RecipeFormPage` | `RecipeFormPage.test.tsx` | 11 | New mode: empty start, Create gating on name + ingredient, trimmed/merged-tag payload with blank rows dropped, save error surfaced. Edit mode: loading state, every field hydrated (known vs custom tags, ingredient order), late-arriving data hydrates, background refetch doesn't clobber edits, update by id + navigate, non-owner and canonical recipes blocked |
 | `SuggestionCard` | `SuggestionCard.test.tsx` | 12 | Three archetype variants, expand/collapse, missing-ingredient warnings, proof warnings, `bottle_from_inventory` substitution, `onMakeThis` callback, and the phase-1→phase-2 wiring that forwards `key_ingredients` to `useAdaptByName.load()` |
 
-**Total: 142 tests, ~1.8s wall time.**
+**Total: 149 tests, ~1.8s wall time.**
 
 ### The phase-1 → phase-2 contract is the highest-value regression coverage
 
@@ -141,7 +142,7 @@ Both run on every push to `main` and every PR. Build a green check before mergin
 - **100% coverage** — chase value, not a number. Coverage report is available via `npm run test:coverage` but isn't a CI gate.
 - **Mutation testing** — even more premature.
 - **Real-stack E2E** — authenticated specs run against mocks. Covering RLS and the real auth gate would need a test Supabase project with a global-setup sign-in and saved `storageState`.
-- **pgTAP / SQL tests** — RLS is enforced by Postgres regardless of client behavior, so SQL-level tests are the right home for that. Worth adding when an RLS regression slips past code review.
+- **RLS tests** — SQL functions are tested in PGlite (`supabase/tests/`), but RLS policies aren't yet: PGlite lacks Supabase's `auth` schema and roles. Worth adding when an RLS regression slips past code review.
 
 ## Phase 3 follow-up (when motivated)
 

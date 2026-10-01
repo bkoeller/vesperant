@@ -54,6 +54,7 @@ You run one deployment. Anyone whose Gmail you add to the in-app allowlist can u
    - `supabase/migrations/005_strict_makeable.sql`
    - `supabase/migrations/006_explicit_grants.sql`
    - `supabase/migrations/007_api_tokens.sql`
+   - `supabase/migrations/008_token_makeable_match.sql`
 
    Plus these one-shot policies for recipe seeding (the canonical-recipe import script needs them):
    ```sql

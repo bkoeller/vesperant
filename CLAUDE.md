@@ -34,6 +34,8 @@ CI (`.github/workflows/`) runs the same plus Playwright smoke tests.
   and `SUPABASE_SERVICE_ROLE_KEY` in `.env.local`; they're sensitive in Vercel,
   so `vercel env pull` won't fetch them.
 - Local dev talks to the production Supabase project and logs to `claude_usage`.
+- Playwright's browser download is unreliable on this machine; run E2E against
+  the system browser: `PLAYWRIGHT_CHROMIUM_PATH=/usr/bin/chromium npm run test:e2e`.
 
 ## Gotchas
 

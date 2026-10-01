@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import { signInAs } from './helpers/auth';
 import { mockSupabaseRest, mockClaude, buildSuggestionsJson, buildAdaptedRecipeJson, type ClaudeRequest } from './helpers/mocks';
 
@@ -119,14 +119,6 @@ test.describe('Admin user', () => {
   });
 });
 
-// "Suggest something" is clickable before the bottles query resolves, and
-// clicking early reports an empty inventory. Wait for the bottles fetch.
-async function gotoTonightWithBottles(page: Page) {
-  const bottlesLoaded = page.waitForResponse(/\/rest\/v1\/bottles/);
-  await page.goto('/tonight');
-  await bottlesLoaded;
-}
-
 test.describe('Suggestion flow', () => {
   let claudeRequests: ClaudeRequest[];
 
@@ -154,8 +146,27 @@ test.describe('Suggestion flow', () => {
     });
   });
 
+  test('keeps Suggest disabled until the bottle inventory has loaded', async ({ page }) => {
+    // Hold the bottles response until the test releases it. Routes registered
+    // later take precedence over mockSupabaseRest's catch-all.
+    let release!: () => void;
+    const released = new Promise<void>(r => { release = r; });
+    await page.route(/\/rest\/v1\/bottles/, async route => {
+      await released;
+      await route.fallback();
+    });
+
+    await page.goto('/tonight');
+    const loadingButton = page.getByRole('button', { name: 'Loading your bar...' });
+    await expect(loadingButton).toBeDisabled();
+
+    release();
+    await expect(page.getByRole('button', { name: 'Suggest something' })).toBeEnabled();
+    await expect(page.getByText(/Add some bottles/)).not.toBeVisible();
+  });
+
   test('renders three suggestion cards after clicking Suggest something', async ({ page }) => {
-    await gotoTonightWithBottles(page);
+    await page.goto('/tonight');
     await page.getByRole('button', { name: /Suggest something/i }).click();
 
     // Three cards with the expected names + archetype badges.
@@ -173,7 +184,7 @@ test.describe('Suggestion flow', () => {
   });
 
   test('expanding a card builds the recipe from the phase-1 key_ingredients', async ({ page }) => {
-    await gotoTonightWithBottles(page);
+    await page.goto('/tonight');
     await page.getByRole('button', { name: /Suggest something/i }).click();
     await expect(page.getByRole('heading', { name: 'Negroni' })).toBeVisible();
 

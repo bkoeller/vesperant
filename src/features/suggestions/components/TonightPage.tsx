@@ -10,7 +10,7 @@ import type { SuggestionResult } from '@/lib/claude';
 
 export function TonightPage() {
   const { user } = useAuth();
-  const { data: bottles } = useBottles();
+  const { data: bottles, isPending: bottlesLoading } = useBottles();
   const { suggestions, loading, error, weather, suggest, refine, reset, responseTimeMs, sessionId, filteredCount } = useSuggestions(user?.id);
   const createLog = useCreateLog();
   const [mood, setMood] = useState('');
@@ -115,10 +115,11 @@ export function TonightPage() {
 
           <button
             onClick={handleSuggest}
-            disabled={loading}
+            // Until the inventory loads, suggest() would report an empty bar.
+            disabled={loading || bottlesLoading}
             className="w-full rounded-button bg-accent-gold py-3 text-sm font-medium text-bg-base transition-colors hover:bg-accent-amber disabled:opacity-50"
           >
-            Suggest something
+            {bottlesLoading ? 'Loading your bar...' : 'Suggest something'}
           </button>
         </div>
 

@@ -94,6 +94,7 @@ If a future change weakens any of these, the regression surfaces before it reach
 | `authenticated.spec.ts` — tab navigation | ✅ | Inventory and Settings render for a signed-in user |
 | `authenticated.spec.ts` — non-admin Settings | ✅ | Allowed Users panel hidden; account email shown |
 | `authenticated.spec.ts` — admin AllowedUsers panel | ✅ | Panel visible and lists granted emails |
+| `authenticated.spec.ts` — Suggest waits for inventory | ✅ | With the bottles response held back, the button reads "Loading your bar..." and is disabled; it enables once bottles arrive |
 | `authenticated.spec.ts` — suggestion flow | ✅ | Phase-1 SSE stream renders three cards with archetype badges and missing-ingredient warnings |
 | `authenticated.spec.ts` — phase-2 recipe on expand | ✅ | Expanding a card makes one non-stream call whose prompt carries the BINDING `key_ingredients`, and renders the recipe |
 
@@ -111,7 +112,7 @@ All Supabase and Claude traffic is intercepted, so these specs exercise the UI a
 ### Adding a new E2E test
 
 1. Create `e2e/<feature>.spec.ts`.
-2. Use `signInAs` + `mockSupabaseRest` + `mockClaude` from helpers. If the test clicks something that depends on loaded data, wait for that request first (see `gotoTonightWithBottles`).
+2. Use `signInAs` + `mockSupabaseRest` + `mockClaude` from helpers.
 3. Prefer `getByRole`, `getByText` over CSS selectors — they're more resilient to refactors.
 4. Run `npm run test:e2e`. CI picks it up.
 

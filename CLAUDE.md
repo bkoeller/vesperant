@@ -22,7 +22,7 @@ Working notes for Claude Code. Product and architecture live in `docs/` — read
 ## Before committing
 
 ```bash
-npx tsc -b && npm test && npm run build
+npm run lint && npx tsc -b && npm test && npm run build
 ```
 
 CI (`.github/workflows/`) runs the same plus Playwright smoke tests.
